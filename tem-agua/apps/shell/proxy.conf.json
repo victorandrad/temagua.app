@@ -1,0 +1,15 @@
+{
+  "/remotes/mapa": {
+    "target": "http://localhost:4201",
+    "changeOrigin": true
+  },
+  "/remotes/painel": {
+    "target": "http://localhost:4202",
+    "changeOrigin": true
+  },
+  "/api": {
+    "target": "http://localhost:4300",
+    "changeOrigin": true,
+    "ws": true
+  }
+}

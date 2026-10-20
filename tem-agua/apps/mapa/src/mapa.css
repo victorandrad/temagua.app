@@ -1,0 +1,210 @@
+.ta-mapa {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #eef0f2;
+  font-family: inherit;
+}
+
+.ta-mapa__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.ta-mapa .maplibregl-ctrl-top-right {
+  top: 84px;
+}
+
+/* ---- Pin central (estilo "ponto de embarque") ---- */
+
+.ta-pin {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ta-pin__drag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+
+/* Área de toque do pin: maior que o desenho, para ser fácil de pegar no celular. */
+.ta-pin__grab {
+  position: absolute;
+  left: -24px;
+  bottom: -8px;
+  width: 48px;
+  height: 60px;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.ta-pin.is-moving .ta-pin__grab {
+  cursor: grabbing;
+}
+
+.ta-pin__body {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ta-pin__head {
+  position: absolute;
+  left: -11px;
+  bottom: 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.ta-pin__head::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.ta-pin__stick {
+  position: absolute;
+  left: -1.5px;
+  bottom: 0;
+  width: 3px;
+  height: 24px;
+  background: #000;
+}
+
+.ta-pin__shadow {
+  position: absolute;
+  left: -5px;
+  top: -2px;
+  width: 10px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.ta-pin.is-moving .ta-pin__body {
+  transform: translateY(-12px);
+}
+
+.ta-pin.is-moving .ta-pin__shadow {
+  transform: scale(1.6);
+  opacity: 0.5;
+}
+
+.ta-pin__bubble {
+  position: absolute;
+  left: 0;
+  bottom: 58px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: #000;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.ta-pin__bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: #000;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.ta-pin__bubble-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ta-pin__bubble-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ta-pin.is-moving .ta-pin__bubble {
+  opacity: 0;
+  transform: translate(-50%, 6px);
+}
+
+/* ---- Botão "minha localização" ---- */
+
+.ta-locate {
+  position: absolute;
+  right: 16px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: bottom 250ms ease;
+}
+
+.ta-locate:active {
+  transform: scale(0.94);
+}
+
+.ta-locate.is-locating svg {
+  animation: ta-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes ta-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ---- Avisos (GPS, fora de Salto) ---- */
+
+.ta-toast {
+  position: absolute;
+  z-index: 4;
+  width: max-content;
+  max-width: min(340px, calc(100% - 32px));
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #000;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+  animation: ta-toast-in 200ms ease;
+}
+
+@keyframes ta-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}

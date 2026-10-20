@@ -1,0 +1,268 @@
+.ta-sheet {
+  position: relative;
+  max-height: 80vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  color: #000;
+  font-family: inherit;
+}
+
+.ta-sheet__peek {
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.ta-sheet__grip {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 14px;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+
+.ta-sheet__grip span {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: #d6d6d6;
+}
+
+.ta-sheet__grip:focus-visible span {
+  background: #000;
+}
+
+/* ---- Status da região ---- */
+
+.ta-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f3f3f3;
+}
+
+.ta-status__dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #afafaf;
+}
+
+.ta-status__dot.is-sem-agua {
+  background: #e11900;
+  box-shadow: 0 0 0 4px rgba(225, 25, 0, 0.18);
+}
+
+.ta-status__dot.is-voltou {
+  background: #05a357;
+  box-shadow: 0 0 0 4px rgba(5, 163, 87, 0.18);
+}
+
+.ta-status__text {
+  min-width: 0;
+}
+
+.ta-status__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ta-status__sub {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: #5e5e5e;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ta-sheet__question {
+  margin: 18px 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Botões ---- */
+
+.ta-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.ta-btn {
+  height: 52px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 80ms ease, background-color 150ms ease;
+}
+
+.ta-btn:active {
+  transform: scale(0.98);
+}
+
+.ta-btn:focus-visible {
+  outline: 3px solid #276ef1;
+  outline-offset: 2px;
+}
+
+.ta-btn--primary {
+  background: #000;
+  color: #fff;
+}
+
+.ta-btn--primary:hover {
+  background: #222;
+}
+
+.ta-btn--secondary {
+  background: #eeeeee;
+  color: #000;
+}
+
+.ta-btn--secondary:hover {
+  background: #e2e2e2;
+}
+
+/* ---- Confirmação ---- */
+
+.ta-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 10px;
+  text-align: center;
+  animation: ta-pop 220ms ease;
+}
+
+.ta-done__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: #fff;
+  background: #000;
+}
+
+.ta-done__icon.is-voltou {
+  background: #05a357;
+}
+
+.ta-done__title {
+  margin: 14px 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ta-done__sub {
+  margin: 0 0 30px;
+  max-width: 280px;
+  font-size: 14px;
+  color: #5e5e5e;
+}
+
+@keyframes ta-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* ---- Área expandida ---- */
+
+.ta-sheet__more {
+  padding: 4px 16px calc(20px + env(safe-area-inset-bottom));
+  border-top: 8px solid #f3f3f3;
+}
+
+.ta-sheet__section {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5e5e5e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ta-rank {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ta-rank__item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid #eee;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ta-rank__pos {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f3f3f3;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ta-rank__name {
+  flex: 1;
+  font-size: 15px;
+}
+
+.ta-rank__count {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #ffe9e5;
+  color: #b51400;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ta-empty,
+.ta-privacy {
+  font-size: 13px;
+  color: #5e5e5e;
+}
+
+.ta-privacy {
+  margin: 18px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f6f6f6;
+}
+
+/* ---- Desktop: painel flutuante à esquerda ---- */
+
+@media (min-width: 768px) {
+  .ta-sheet {
+    max-height: calc(100vh - 132px);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
+  }
+
+  .ta-sheet__peek {
+    padding-bottom: 16px;
+  }
+}

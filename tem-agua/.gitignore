@@ -1,0 +1,8 @@
+node_modules
+dist
+.angular
+*.log
+apps/api/data/
+.tunnel-url
+.tunnel-pid
+.env.local

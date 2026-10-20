@@ -1,0 +1,24 @@
+{
+  "name": "painel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite build && concurrently -k \"vite build --watch\" \"vite preview\"",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@tem-agua/contracts": "*",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "^1.23.5",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "concurrently": "^9.2.1",
+    "typescript": "~5.9.2",
+    "vite": "^8.3.4",
+    "vue-tsc": "^3"
+  }
+}

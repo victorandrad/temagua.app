@@ -1,0 +1,22 @@
+{
+  "name": "tem-agua",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mapa colaborativo de falta d'água em Salto/SP — microfrontends Angular + React + Vue com Module Federation",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:ngrok": "node scripts/dev.mjs --tunnel=ngrok",
+    "dev:tunnel": "node scripts/dev.mjs --tunnel=cloudflared",
+    "stop": "node scripts/stop.mjs",
+    "build": "npm run build -w apps/mapa && npm run build -w apps/painel && npm run build -w apps/shell",
+    "typecheck": "npm run typecheck -w apps/mapa && npm run typecheck -w apps/painel"
+  },
+  "devDependencies": {
+    "@ngrok/ngrok": "^1.7.0",
+    "concurrently": "^9.2.1"
+  }
+}

@@ -1,0 +1,17 @@
+# Dependências e builds
+node_modules/
+dist/
+.angular/
+*.log
+
+# Segredos e configuração local
+.env.local
+.env*.local
+
+# Dados de execução (relatos salvos pela API) e arquivos do túnel
+tem-agua/apps/api/data/
+.tunnel-url
+.tunnel-pid
+
+# Config local do Claude Code
+.claude/

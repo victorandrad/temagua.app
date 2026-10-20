@@ -1,0 +1,11 @@
+{
+  "name": "nova-startup",
+  "private": true,
+  "description": "Atalhos para rodar o app tem-agua a partir da raiz",
+  "scripts": {
+    "dev": "npm run dev --prefix tem-agua",
+    "dev:ngrok": "npm run dev:ngrok --prefix tem-agua",
+    "dev:tunnel": "npm run dev:tunnel --prefix tem-agua",
+    "stop": "npm run stop --prefix tem-agua"
+  }
+}
