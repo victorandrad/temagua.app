@@ -102,6 +102,9 @@ export function MapaApp() {
     const offs: Array<() => void> = [];
 
     map.on('load', () => {
+      // A atribuição compacta abre expandida e cobre o topo no celular; começa recolhida (botão ⓘ).
+      containerRef.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+
       map.addSource('reports', { type: 'geojson', data: toGeoJSON([]) });
 
       map.addLayer({
