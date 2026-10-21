@@ -3,8 +3,9 @@
 //
 // 1. Instala dependências se faltar node_modules
 // 2. Confere versão do Node e se as portas estão livres
-// 3. Sobe API + remotos (mapa, painel); o shell só sobe depois que os remotos respondem
-// 4. Com --tunnel=ngrok|cloudflared: abre o túnel e mostra o link público
+// 3. Sobe o banco (PostgreSQL/PostGIS no Docker, serviço "db" do compose.yaml)
+// 4. Sobe API + remotos (mapa, painel, metricas); o shell só sobe depois que os remotos respondem
+// 5. Com --tunnel=ngrok|cloudflared: abre o túnel e mostra o link público
 
 import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -41,7 +42,25 @@ if (busy.length) {
   process.exit(1);
 }
 
-// ---- 4. Processos ----
+// ---- 4. Banco ----
+// Sobe só o serviço "db" do compose da raiz do repositório e espera ficar saudável.
+const compose = join(root, '..', 'compose.yaml');
+try {
+  execSync('docker --version', { stdio: 'ignore' });
+} catch {
+  console.error(c.red('\nO banco de dados (PostgreSQL) roda no Docker, e o Docker não foi encontrado.'));
+  console.error('Instale o Docker Desktop (https://www.docker.com/products/docker-desktop/) e rode de novo.\n');
+  process.exit(1);
+}
+console.log(c.cyan('Subindo o banco (PostgreSQL + PostGIS)…'));
+try {
+  execSync(`docker compose -f "${compose}" up -d --wait db`, { stdio: 'inherit' });
+} catch {
+  console.error(c.red('\nNão consegui subir o banco. O Docker Desktop está aberto?\n'));
+  process.exit(1);
+}
+
+// ---- 5. Processos ----
 const { default: concurrently } = await import('concurrently');
 const remotesReady = SERVICES.filter((s) => s.name !== 'shell').map((s) => s.ready);
 
@@ -49,6 +68,7 @@ const commands = [
   { name: 'api', command: 'npm run dev -w apps/api', prefixColor: 'yellow' },
   { name: 'mapa', command: 'npm run serve -w apps/mapa', prefixColor: 'blue' },
   { name: 'painel', command: 'npm run serve -w apps/painel', prefixColor: 'green' },
+  { name: 'metricas', command: 'npm run serve -w apps/metricas', prefixColor: 'cyan' },
   {
     name: 'shell',
     command: `node scripts/wait-for.mjs ${remotesReady.join(' ')} && npm start -w apps/shell`,

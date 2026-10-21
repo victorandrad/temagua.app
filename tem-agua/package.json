@@ -12,8 +12,11 @@
     "dev:ngrok": "node scripts/dev.mjs --tunnel=ngrok",
     "dev:tunnel": "node scripts/dev.mjs --tunnel=cloudflared",
     "stop": "node scripts/stop.mjs",
-    "build": "npm run build -w apps/mapa && npm run build -w apps/painel && npm run build -w apps/shell",
-    "typecheck": "npm run typecheck -w apps/mapa && npm run typecheck -w apps/painel"
+    "build": "npm run build -w apps/mapa && npm run build -w apps/painel && npm run build -w apps/metricas && npm run build -w apps/shell",
+    "typecheck": "npm run typecheck -w apps/mapa && npm run typecheck -w apps/painel && npm run typecheck -w apps/metricas",
+    "db:seed": "node apps/api/seed.mjs",
+    "db:limpar-demo": "node apps/api/seed.mjs --limpar",
+    "db:psql": "docker compose -f ../compose.yaml exec db psql -U temagua -d temagua"
   },
   "devDependencies": {
     "@ngrok/ngrok": "^1.7.0",

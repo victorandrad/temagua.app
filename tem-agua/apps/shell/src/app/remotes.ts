@@ -9,6 +9,7 @@ import type { MountFn } from '@tem-agua/contracts';
 export const REMOTES = {
   mapa: '/remotes/mapa/remoteEntry.js',
   painel: '/remotes/painel/remoteEntry.js',
+  metricas: '/remotes/metricas/remoteEntry.js',
 } as const;
 
 export type RemoteName = keyof typeof REMOTES;

@@ -6,6 +6,7 @@ export const SERVICES = [
   { name: 'api', port: 4300, ready: 'http://localhost:4300/api/reports' },
   { name: 'mapa', port: 4201, ready: 'http://localhost:4201/remotes/mapa/remoteEntry.js' },
   { name: 'painel', port: 4202, ready: 'http://localhost:4202/remotes/painel/remoteEntry.js' },
+  { name: 'metricas', port: 4203, ready: 'http://localhost:4203/remotes/metricas/remoteEntry.js' },
   { name: 'shell', port: 4200, ready: 'http://localhost:4200/' },
 ];
 
