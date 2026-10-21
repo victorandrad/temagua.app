@@ -9,17 +9,27 @@ Seus vizinhos veem na hora — e você descobre se o problema é só na sua casa
 
 ![Angular](https://img.shields.io/badge/Angular_21-shell-DD0031?logo=angular&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-mapa-61DAFB?logo=react&logoColor=black)
-![Vue](https://img.shields.io/badge/Vue_3-painel-4FC08D?logo=vuedotjs&logoColor=white)
+![Vue](https://img.shields.io/badge/Vue_3-painel_e_métricas-4FC08D?logo=vuedotjs&logoColor=white)
 ![Module Federation](https://img.shields.io/badge/Module_Federation-2.0-8A2BE2)
 ![MapLibre](https://img.shields.io/badge/MapLibre_GL-6-396CB2?logo=maplibre&logoColor=white)
-![Node](https://img.shields.io/badge/Node-WebSocket-339933?logo=nodedotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-PostGIS-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/status-protótipo-orange)
+
+[O problema](#-o-problema) ·
+[Como funciona](#-como-funciona) ·
+[Recursos](#-recursos) ·
+[Rodar](#-rode-em-1-minuto) ·
+[Arquitetura](#-por-dentro-três-frameworks-um-app) ·
+[Documentação](#-documentação)
 
 <br/>
 
-<img src="docs/img/mobile.jpg" alt="Tela do celular: pin no Jardim Nair Maria, pontos vermelhos de vizinhos sem água e o painel com 'Provável falta de água'" width="250"/>
-&nbsp;&nbsp;&nbsp;
-<img src="docs/img/mobile-ranking.jpg" alt="Painel expandido com o ranking dos bairros com mais relatos" width="250"/>
+<img src="docs/img/mobile.jpg" alt="Celular: pin no Jardim Nair Maria, pontos vermelhos de vizinhos sem água e o painel dizendo 'Provável falta de água · 14 vizinhos sem água'" width="230"/>
+&nbsp;
+<img src="docs/img/mobile-busca.jpg" alt="Busca com autocompletar: digitando 'nove de julho' aparecem a Rua 9 de Julho em dois bairros e o Colégio Prudente de Moraes" width="230"/>
+&nbsp;
+<img src="docs/img/mobile-ranking.jpg" alt="Painel aberto com o ranking dos bairros com mais relatos e o filtro 1 h / 6 h / 24 h / 7 dias" width="230"/>
 
 </div>
 
@@ -35,50 +45,96 @@ Em Salto, faltar água virou rotina — e **ninguém avisa antes**.
 
 O **Tem Água?** transforma cada morador num sensor: quem está sem água marca no mapa, e todo mundo vê em tempo real onde está faltando — e onde já voltou.
 
-> 📄 A pesquisa completa que motivou o produto está em [`pesquisa-problemas-salto.md`](pesquisa-problemas-salto.md).
+> 📄 A pesquisa que motivou o produto está em [`pesquisa-problemas-salto.md`](pesquisa-problemas-salto.md).
 
 ## 👆 Como funciona
 
 | 1. Ache seu lugar | 2. Conte como está | 3. Veja a cidade ao vivo |
 |:---:|:---:|:---:|
-| Arraste o mapa **ou o pin**, toque em 📍 para usar o GPS ou busque o bairro. | Toque em **"Estou sem água"** ou **"A água voltou"**. Só isso: sem cadastro. | Os pontos aparecem **na hora** no celular e no computador de todos. |
+| Arraste o mapa **ou o pin**, toque em 📍 para usar o GPS ou digite um endereço. | Toque em **"Estou sem água"** ou **"A água voltou"**. Só isso: sem cadastro. | Os pontos aparecem **na hora** no celular e no computador de todos. |
 
 <div align="center">
-<img src="docs/img/desktop.jpg" alt="Versão desktop: mapa de Salto com manchas de calor nos bairros com falta d'água e o painel flutuante à esquerda" width="900"/>
+<img src="docs/img/desktop.jpg" alt="Versão desktop: barra lateral com busca, status do bairro, botões de relato e ranking; à direita, o mapa de Salto com manchas vermelhas nos bairros com falta d'água" width="900"/>
 </div>
 
-## ✨ O que já funciona
+## ✨ Recursos
+
+### Para quem mora em Salto
 
 | | |
 |---|---|
-| 🗺️ **Mapa estilo Uber** | Tela cheia, pin central com o nome do bairro, painel deslizante que se adapta a celular e desktop |
+| 🗺️ **Mapa estilo Uber** | Tela cheia e pin central com o nome do bairro. No celular, um painel que sobe de baixo; no computador, uma barra lateral |
+| 🔎 **Busca de endereço** | Autocompletar como no Google Maps: ruas, lugares e os 91 bairros de Salto. Entende "nove de julho" como "9 de Julho" e lembra as buscas recentes |
 | 📍 **GPS de verdade** | Ponto azul com círculo de precisão; avisa se a permissão foi negada, se o sinal está fraco ou se você está fora de Salto |
-| ⚡ **Tempo real** | Relatou no celular, aparece no computador em ~1 s (WebSocket). Caiu a conexão? O relato espera e é reenviado sozinho |
-| 🔥 **Mapa de calor** | Manchas vermelhas mostram onde a falta d'água se concentra; relatos recentes pesam mais |
-| 🏆 **Ranking de bairros** | Os bairros com mais relatos nas últimas 6 h, a um toque de distância |
-| 🔎 **Busca de bairros** | 91 bairros de Salto, com ou sem acento |
-| 🔒 **Privacidade** | Sem cadastro e sem endereço: o servidor só recebe a posição arredondada (~10 m) |
+| ⚡ **Tempo real** | Relatou no celular, aparece no computador em ~1 s. Caiu a conexão? O relato espera e é reenviado sozinho |
+| 🔥 **Mapa de calor** | Manchas vermelhas mostram onde a falta se concentra; relatos recentes pesam mais |
+| 🏆 **Ranking de bairros** | Bairros com mais relatos na última hora, 6 h, 24 h ou 7 dias, e os bairros onde a água está voltando |
+| 📲 **Instala como app** | PWA com ícone na tela inicial, splash screen e atalhos para as métricas e o monitoramento |
+
+### Para quem acompanha a cidade (imprensa, associações de bairro, prefeitura)
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**📊 Painel de métricas** — em `/metricas`
+
+Indicadores com comparação ao período anterior, relatos por hora e por dia, "quando falta água" (dia da semana × hora), bairros mais afetados e mapa por área. Filtra por período e bairro, atualiza sozinho, **exporta CSV** e gera um **relatório em PDF** de 3 páginas.
+
+</td>
+<td width="50%" valign="top">
+
+**📺 Modo monitoramento** — em `/metricas?modo=monitor`
+
+O mapa de calor em tela cheia, para deixar numa TV. As manchas de falta (vermelho) e de volta da água (verde) pulsam em tempos alternados, e cada relato novo pisca no instante em que chega. A tela não apaga sozinha.
+
+</td>
+</tr>
+<tr>
+<td><img src="docs/img/metricas.jpg" alt="Painel de métricas: 286 relatos de falta em 7 dias, 114 de água voltando, 12 bairros afetados, pico às 20h e gráfico de barras por dia"/></td>
+<td><img src="docs/img/monitor.jpg" alt="Modo monitoramento: mapa de Salto em tela cheia com manchas vermelhas e verdes, contadores à esquerda e legenda"/></td>
+</tr>
+</table>
+
+### Por baixo dos panos
+
+| | |
+|---|---|
+| 🔒 **Privacidade** | Sem cadastro e sem endereço. A posição exata fica no aparelho; o servidor só recebe e guarda a posição arredondada (~11 m) |
+| 🗄️ **Dados para análise** | Cada relato vira uma linha no PostgreSQL + PostGIS com dia, hora (fuso de Salto) e coordenadas |
+| 🔍 **Encontrável no Google** | Uma página por bairro ("falta de água no Jardim Nair Maria"), sitemap, Open Graph para links no WhatsApp |
+| 🛡️ **Proteção contra abuso** | Só aceita pontos dentro de Salto e no máximo 10 relatos por minuto por IP |
 
 ## 🚀 Rode em 1 minuto
 
-Você só precisa do **Node 20.19+**.
+**Só com Docker** (não precisa de Node):
 
 ```bash
 git clone https://github.com/victorandrad/temagua.app.git
 cd temagua.app
+docker compose up -d --build
+```
+
+Abra **http://localhost:8080**. As métricas ficam em **http://localhost:8080/metricas**. Para parar: `docker compose down` (os relatos ficam salvos).
+
+**Para desenvolver** (Node 20.19+ e Docker, que roda o banco):
+
+```bash
 npm run dev
 ```
 
-Abra **http://localhost:4200** — pronto. O primeiro `npm run dev` instala as dependências sozinho.
+Abra **http://localhost:4200**. O primeiro `npm run dev` instala as dependências e sobe o banco sozinho.
 
 | Comando | Para quê |
 |---|---|
-| `npm run dev` | Sobe tudo (API + mapa + painel + shell) |
-| `npm run dev:ngrok` | Sobe tudo **+ link HTTPS público** para abrir no celular (com GPS) — [como configurar](tem-agua/README.md#testar-no-celular-com-gps) |
+| `npm run dev` | Sobe tudo para desenvolver (banco + API + mapa + painel + métricas + shell) |
+| `npm run dev:ngrok` | O mesmo **+ link HTTPS público** para abrir no celular, com GPS — [como configurar](tem-agua/README.md#testar-no-celular-com-gps) |
 | `npm run dev:tunnel` | O mesmo com cloudflared, sem precisar de conta |
 | `npm run stop` | Derruba tudo |
+| `npm run db:seed` | Preenche as métricas com 30 dias de dados de demonstração (`db:limpar-demo` apaga) |
+| `npm run docker:up` / `docker:down` | Sobe/para a versão Docker (`docker:ngrok` e `docker:tunnel` incluem o link público) |
 
-> 🪟 No Windows, dá para usar só dois cliques: **`iniciar.cmd`** e **`parar.cmd`**.
+> 🪟 No Windows dá para usar dois cliques: **`iniciar.cmd`** e **`parar.cmd`**.
 
 ## 🧩 Por dentro: três frameworks, um app
 
@@ -86,31 +142,40 @@ Cada pedaço da tela é um **microfrontend** em um framework diferente, costurad
 
 ```mermaid
 flowchart LR
-  subgraph browser["Navegador · tudo em localhost:4200"]
-    shell["Shell · Angular<br/>layout, busca, relatos"]
+  subgraph browser["Navegador · tudo na mesma origem"]
+    shell["Shell · Angular<br/>layout, busca, rotas, relatos"]
     mapa["Mapa · React + MapLibre<br/>pin, GPS, mapa de calor"]
     painel["Painel · Vue<br/>relatar, ranking"]
+    metricas["Métricas · Vue + ECharts<br/>gráficos, PDF, monitoramento"]
     bus(("Barramento<br/>de eventos"))
-    shell -- "carrega via<br/>Module Federation" --> mapa
-    shell -- "carrega via<br/>Module Federation" --> painel
+    shell -- "Module Federation" --> mapa
+    shell -- "Module Federation" --> painel
+    shell -- "Module Federation<br/>(rota /metricas)" --> metricas
     shell <--> bus
     mapa <--> bus
     painel <--> bus
+    metricas <--> bus
   end
-  api[("API · Node + WebSocket")]
+  api["API · Node + WebSocket"]
+  db[("PostgreSQL<br/>+ PostGIS")]
   outros["Outros celulares<br/>e computadores"]
   shell -- "POST /api/reports" --> api
+  metricas -- "GET /api/metricas" --> api
+  api <--> db
   api -- "tempo real · /api/ws" --> shell
   api -. "tempo real" .-> outros
 ```
 
 | Pasta | O que é | Stack |
 |---|---|---|
-| [`tem-agua/apps/shell`](tem-agua/apps/shell) | Casca do app: layout, busca, dono dos relatos | Angular 21 · signals · zoneless |
+| [`tem-agua/apps/shell`](tem-agua/apps/shell) | Casca do app: layout, busca, rotas, dono dos relatos | Angular 21 · signals · zoneless |
 | [`tem-agua/apps/mapa`](tem-agua/apps/mapa) | Mapa, pin arrastável, GPS, mapa de calor | React 19 · MapLibre GL 6 |
 | [`tem-agua/apps/painel`](tem-agua/apps/painel) | Painel para relatar e ranking | Vue 3 |
-| [`tem-agua/apps/api`](tem-agua/apps/api) | Recebe e distribui relatos em tempo real | Node · ws |
+| [`tem-agua/apps/metricas`](tem-agua/apps/metricas) | Métricas, relatório PDF e modo monitoramento | Vue 3 · ECharts · MapLibre |
+| [`tem-agua/apps/api`](tem-agua/apps/api) | Relatos em tempo real, métricas, CSV, busca de endereço e páginas para o Google | Node · ws · pg |
+| `db` ([`compose.yaml`](compose.yaml)) | Relatos por dia, hora e coordenadas | PostgreSQL 18 · PostGIS 3.6 |
 | [`tem-agua/packages/contracts`](tem-agua/packages/contracts) | Tipos, eventos e bairros compartilhados | TypeScript |
+| [`tem-agua/docker`](tem-agua/docker) | Imagens da API e do site (Nginx) | Docker |
 | [`tem-agua/scripts`](tem-agua/scripts) | Sobe, para e abre túneis com um comando | Node |
 
 Cada remoto expõe só uma função — `mount(elemento) → desmontar` — então o shell não sabe (nem precisa saber) se do outro lado tem React ou Vue. Se um deles falhar, só aquele pedaço da tela mostra "Tentar de novo".
@@ -118,17 +183,20 @@ Cada remoto expõe só uma função — `mount(elemento) → desmontar` — ent�
 ## 🛣️ Próximos passos
 
 - [x] Mapa colaborativo com relatos em tempo real
-- [x] GPS, busca de bairros e ranking
+- [x] GPS, busca de endereços com autocompletar e ranking por período
 - [x] Link público para testar no celular (ngrok / cloudflared)
-- [ ] Banco de dados de verdade no lugar do arquivo JSON (ex.: Postgres/PostGIS ou Supabase)
-- [ ] Deploy com endereço fixo
+- [x] Banco de dados (PostgreSQL + PostGIS), painel de métricas, CSV e relatório PDF
+- [x] Modo monitoramento para TV
+- [x] Infra em Docker (Nginx + API + banco, túnel opcional)
+- [x] PWA, splash screen e páginas de bairro para o Google
+- [ ] Deploy com endereço fixo e cadastro no Google Search Console
 - [ ] Validar com moradores dos bairros mais afetados
 
 ## 📚 Documentação
 
 | Para… | Leia |
 |---|---|
-| Entender a arquitetura, o deploy e as decisões técnicas | [`tem-agua/README.md`](tem-agua/README.md) |
+| Arquitetura, banco, Docker, SEO e deploy em detalhe | [`tem-agua/README.md`](tem-agua/README.md) |
 | Trabalhar no código com IA (Claude Code, Codex, Cursor…) | [`AGENTS.md`](AGENTS.md) |
 | Entender por que este produto existe | [`pesquisa-problemas-salto.md`](pesquisa-problemas-salto.md) |
 
@@ -138,6 +206,6 @@ Cada remoto expõe só uma função — `mount(elemento) → desmontar` — ent�
 
 Feito em **Salto/SP** 💧 por quem também já ficou sem água.
 
-<sub>Mapa: © <a href="https://openfreemap.org">OpenFreeMap</a> · © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> · dados © colaboradores do <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></sub>
+<sub>Mapa: © <a href="https://openfreemap.org">OpenFreeMap</a> · © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> · dados © colaboradores do <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · busca de endereços: <a href="https://photon.komoot.io">Photon</a></sub>
 
 </div>

@@ -8,32 +8,37 @@ Cada parte é um **microfrontend em um framework diferente**, ligado por **Modul
 |-----|-----------|-------|------------------|
 | `apps/shell` | Angular 21 | 4200 | Layout, busca de bairro, dono dos relatos (`ReportsService`), carrega os remotos |
 | `apps/mapa` | React 19 + MapLibre | 4201 | Mapa, pin arrastável, mapa de calor dos relatos, botão "minha localização" |
+| `apps/metricas` | Vue 3 + ECharts + MapLibre | 4203 | Painel de métricas e relatórios em `/metricas`: indicadores, série por hora/dia, dia da semana × hora, ranking e mapa por área, CSV e PDF — em tempo real |
 | `apps/painel` | Vue 3 | 4202 | Bottom sheet: status da região, "Estou sem água" / "A água voltou", ranking de bairros |
-| `apps/api` | Node + ws | 4300 | Recebe os relatos, salva em `apps/api/data/reports.json` e avisa todos os aparelhos em tempo real (WebSocket) |
+| `apps/api` | Node + PostgreSQL + ws | 4300 | Recebe os relatos, grava no banco e avisa todos os aparelhos em tempo real (WebSocket); serve as métricas e o CSV |
+| `db` | PostgreSQL 18 + PostGIS | 5442 | Relatos por dia, hora e coordenadas (serviço do `compose.yaml`; sobe sozinho no `npm run dev`) |
 | `packages/contracts` | TypeScript | — | Tipos, barramento de eventos e dados dos bairros, compartilhados por todos |
 
 ## Rodando
 
-Requer Node 20.19+. Os comandos funcionam tanto na pasta `tem-agua` quanto na raiz `nova-startup`.
+Requer Node 20.19+ e **Docker** (o banco de dados roda num container, mesmo no `npm run dev`). Os comandos funcionam tanto na pasta `tem-agua` quanto na raiz `nova-startup`.
 
 | Comando | O que faz |
 |---------|-----------|
-| `npm run dev` | Sobe API, mapa, painel e shell em http://localhost:4200 |
+| `npm run dev` | Sobe banco, API, mapa, painel, métricas e shell em http://localhost:4200 |
 | `npm run dev:ngrok` | O mesmo + túnel HTTPS do **ngrok**, com o link público em destaque (para o celular/GPS) |
 | `npm run dev:tunnel` | O mesmo, mas com o túnel do **cloudflared** (sem conta) |
-| `npm run stop` | Derruba tudo que os comandos acima subiram (inclusive o túnel aberto por eles) |
+| `npm run stop` | Derruba tudo que os comandos acima subiram (inclusive o túnel e o container do banco; os dados ficam) |
+| `npm run db:seed` | Gera 30 dias de relatos de **demonstração** para o painel (`origem = 'demo'`, nunca se misturam aos reais) |
+| `npm run db:limpar-demo` | Apaga só a demonstração |
+| `npm run db:psql` | Abre o `psql` no banco |
 
 No Windows também dá para dar dois cliques em `iniciar.cmd` (usa o ngrok) / `parar.cmd`, na raiz `nova-startup`.
 
 O que o `scripts/dev.mjs` faz:
 1. Confere a versão do Node e instala as dependências se faltar `node_modules`.
-2. Confere se as portas 4200, 4201, 4202 e 4300 estão livres. Se não estiverem, mostra o PID e o processo de cada uma e sugere o `npm run stop`.
+2. Sobe o container do banco (`db`) e confere se as portas 4200–4203 e 4300 estão livres. Se não estiverem, mostra o PID e o processo de cada uma e sugere o `npm run stop`.
 3. Sobe a API e os remotos; o shell só sobe depois que os `remoteEntry.js` respondem (sem "falha ao carregar" na primeira abertura).
 4. Com `--tunnel=ngrok` ou `--tunnel=cloudflared`, espera o shell e abre o túnel. O link também fica salvo em `tem-agua/.tunnel-url`.
 
 Se um processo cair, os outros são derrubados; Ctrl+C para tudo. Os remotos rodam em `vite build --watch` + `vite preview`: cada alteração recompila em ~1 s, recarregue a página para ver.
 
-Para desenvolver um remoto isolado com hot reload: `npm run stop`, depois `npm run dev -w apps/mapa` (http://localhost:4201) ou `npm run dev -w apps/painel` (http://localhost:4202).
+Para desenvolver um remoto isolado com hot reload: `npm run stop`, depois `npm run dev -w apps/mapa` (http://localhost:4201) `npm run dev -w apps/painel` (http://localhost:4202) ou `npm run dev -w apps/metricas` (http://localhost:4203, com proxy próprio de `/api`).
 
 ### Testar no celular (com GPS)
 
@@ -49,7 +54,7 @@ O navegador só libera o GPS em HTTPS: use `npm run dev:ngrok` (ou `iniciar.cmd`
 
 Sem token/cloudflared, o app sobe normalmente em localhost e o terminal mostra o que fazer.
 
-Isso funciona porque o shell serve tudo pela mesma origem: o `proxy.conf.json` do Angular repassa `/remotes/mapa` → porta 4201, `/remotes/painel` → porta 4202 e `/api` (HTTP e WebSocket) → porta 4300. O `angular.json` libera os hosts do cloudflared e do ngrok.
+Isso funciona porque o shell serve tudo pela mesma origem: o `proxy.conf.json` do Angular repassa `/remotes/mapa` → porta 4201, `/remotes/painel` → porta 4202, `/remotes/metricas` → porta 4203 e `/api` (HTTP e WebSocket) → porta 4300. O `angular.json` libera os hosts do cloudflared e do ngrok.
 
 ## Como os microfrontends se integram
 
@@ -73,14 +78,75 @@ Isso funciona porque o shell serve tudo pela mesma origem: o `proxy.conf.json` d
 - **GPS**: o botão de localização usa alta precisão, mostra o ponto azul com o círculo de precisão e avisa quando a permissão é negada, o GPS falha, a precisão é ruim (> 50 m) ou a pessoa está fora de Salto.
 - **Pin**: dá para arrastar o mapa (o pin fica fixo no centro) **ou** o próprio pin. Ao soltar o pin, o mapa desliza até o ponto escolhido e o pin volta ao centro na mesma animação.
 - **Privacidade (LGPD)**: a posição exata fica só no aparelho, para o ponto aparecer onde o pin estava. O que vai para o servidor passa por `toPublicReport()` e é arredondado de novo na API, para ~11 m (`PUBLIC_DECIMALS = 4`). Com ~110 m (3 casas) o ponto ficava ~90 px deslocado entre aparelhos.
-- **Bairros**: 91 centroides aproximados extraídos do OpenStreetMap (`packages/contracts/src/bairros.ts`).
+- **Bairros**: 91 centroides aproximados extraídos do OpenStreetMap (`packages/contracts/src/bairros.json`, fonte única para o front e a API).
 - **Tempo real**: um relato feito em qualquer aparelho aparece nos outros em ~1 s. O `ReportsService` (shell) junta três fontes: relatos de demonstração, os do servidor (posição arredondada) e os deste aparelho (posição exata, no `localStorage`). Se a conexão cair, o indicador vira "Reconectando…", o relato fica pendente e é reenviado ao reconectar.
 - **Por que WebSocket e não SSE**: os Quick Tunnels da Cloudflare (`trycloudflare.com`) seguram streams de Server-Sent Events; WebSocket passa normalmente.
-- **API**: valida os dados, aceita só posições dentro de Salto, arredonda a posição no servidor (nunca guarda a exata), limita 10 relatos por minuto por IP e guarda 7 dias. É um protótipo: para produção, troque o arquivo JSON por um banco (ex.: Postgres/PostGIS ou Supabase).
+- **API**: valida os dados, aceita só posições dentro de Salto, arredonda a posição no servidor (nunca guarda a exata), limita 10 relatos por minuto por IP e ignora relatos repetidos (mesmo `id`). Grava no PostgreSQL + PostGIS (ver abaixo).
+- **Busca de endereço**: autocompletar pelo [Photon](https://photon.komoot.io) (OpenStreetMap), passando pela API (`/api/geocode`, com cache e limite por IP) e filtrado para Salto. O Nominatim proíbe uso como autocompletar.
 - **Angular 21 em vez de 22**: o Angular 22 exige Node 22+. Com Node 22+ instalado, dá para atualizar com `ng update`.
+
+## Banco de dados e métricas
+
+Cada relato é uma linha da tabela `relatos` (`apps/api/db/schema.sql`, aplicado pela API ao subir): `id`, `status`, `bairro`, `lat`/`lng` (já arredondados para ~11 m), `origem` e `criado_em`, mais colunas calculadas pelo próprio PostgreSQL — **`dia`** e **`hora`** no fuso de Salto e **`geom`** (ponto PostGIS, com índice espacial).
+
+O painel em **`/metricas`** consulta `GET /api/metricas?de=AAAA-MM-DD&ate=AAAA-MM-DD&bairro=...&demo=0|1` (uma resposta com tudo) e se atualiza sozinho quando chega um relato novo. "Exportar CSV" baixa `/api/relatorios/relatos.csv` com os mesmos filtros (dia, hora, data/hora, bairro, status, latitude, longitude; separador `;` para o Excel em português). "Imprimir / PDF" gera o relatório pelo navegador, sem os controles.
+
+**Modo monitoramento:** o botão "Monitoramento" (ou o link direto `/metricas?modo=monitor`, para deixar numa TV) mostra só o mapa de calor da falta d'água em tela cheia, atualizando em tempo real: cada relato novo pisca no mapa no instante em que chega, os mais antigos esfriam com o tempo e dá para escolher a janela (1 h, 6 h ou 24 h). A tela não apaga sozinha, o cursor some quando parado e Esc sai.
+
+Para ver o painel com dados antes de ter relatos reais: `npm run db:seed`. O painel avisa quando o período inclui demonstração e permite desligá-la.
+
+## Indexação no Google (SEO)
+
+O app é uma SPA (microfrontends carregados por JavaScript), então a API também serve **páginas HTML prontas** para o Google:
+
+| URL | O que é |
+|-----|---------|
+| `/bairros/<bairro>` (ex.: `/bairros/jardim-nair-maria`) | Situação da água no bairro agora, contagens de 24 h / 7 dias / 30 dias, bairros próximos e botão para o mapa já no bairro. Título e descrição próprios para buscas como "falta de água jardim nair maria salto" |
+| `/bairros` | Índice com os 91 bairros, os com falta primeiro |
+| `/sitemap.xml` | Home, métricas, índice e todas as páginas de bairro (com `lastmod` do último relato) |
+| `/robots.txt` | Libera o site; bloqueia CSV, autocompletar e o modo TV; aponta o sitemap |
+
+- As páginas usam **só relatos reais** — a demonstração nunca aparece para o Google.
+- A home tem título/descrição de busca, `canonical`, Open Graph com imagem (`icons/og.png`, para links no WhatsApp/redes), JSON-LD (`WebApplication`) e conteúdo em `<noscript>`.
+- `/?bairro=<bairro>` abre o mapa direto no bairro (é o destino dos botões das páginas de bairro).
+
+**Para colocar no ar** (no `.env` da raiz ou no ambiente do `docker compose`):
+
+```bash
+SITE_URL=https://seu-dominio.com.br           # vira o canonical, o sitemap e o Open Graph
+GOOGLE_SITE_VERIFICATION=codigo-do-search-console
+```
+
+Sem `SITE_URL`, as URLs usam a origem da requisição (útil no dev e no túnel). Depois, no [Google Search Console](https://search.google.com/search-console): adicione o domínio (verificação por meta tag usa o código acima; por DNS não precisa de nada aqui) e envie `https://seu-dominio.com.br/sitemap.xml`. O Google não aceita mais "ping" de sitemap — o envio é pelo Search Console.
+
+## Docker
+
+Infra de produção em containers, definida em `compose.yaml` (raiz do repositório):
+
+| Container | Imagem | O que faz |
+|-----------|--------|-----------|
+| `web` | `docker/web.Dockerfile` — build em `node:22-alpine`, runtime `nginx:1.30-alpine` | Compila os três front-ends e serve tudo na mesma origem: shell em `/`, remotos em `/remotes/<nome>/`, proxy de `/api` e do WebSocket `/api/ws` para a API (`docker/nginx.conf`) |
+| `db` | `postgis/postgis:18-3.6-alpine` | Banco; dados no volume `banco`. Porta `127.0.0.1:5442` para ferramentas de BD |
+| `api` | `docker/api.Dockerfile` — `node:22-alpine`, usuário sem root | API de relatos e métricas (sem estado; usa o `db`) |
+| `ngrok` | `ngrok/ngrok:3` (perfil `ngrok`) | Link público; lê `NGROK_AUTHTOKEN`/`NGROK_DOMAIN` de `tem-agua/.env.local`; painel com o link em http://localhost:4040 |
+| `cloudflared` | `cloudflare/cloudflared` (perfil `cloudflared`) | Link público sem conta; o link aparece em `docker compose logs cloudflared` |
+
+Da raiz do repositório:
+
+```bash
+npm run docker:up       # build + sobe web e api → http://localhost:8080 (porta: WEB_PORT=xxxx)
+npm run docker:ngrok    # + túnel ngrok
+npm run docker:tunnel   # + túnel cloudflared
+npm run docker:logs     # acompanha os logs
+npm run docker:down     # para tudo (inclusive os túneis); os relatos ficam no volume
+```
+
+Para apagar também os relatos salvos: `docker compose down -v`. O `npm run dev` usa o mesmo serviço `db`, então dev e Docker enxergam os mesmos dados.
+
+Detalhes do Nginx: `remoteEntry.js` e `index.html` sempre revalidam (deploy novo aparece sem limpar cache); arquivos com hash têm cache de 1 ano; o worker `.mjs` do MapLibre sai com MIME de JavaScript; gzip ligado; `/healthz` para healthcheck. A API recebe `SIGTERM` e fecha as conexões antes de sair.
 
 ## Deploy
 
-Publique tudo no mesmo domínio: o build do shell (`apps/shell/dist/shell/browser`) na raiz, e o `dist` de cada remoto em `/remotes/mapa/` e `/remotes/painel/`. Os builds já saem com esses caminhos.
+O jeito mais simples é a imagem `web` + `api` acima (qualquer servidor com Docker). Sem Docker, publique tudo no mesmo domínio: o build do shell (`apps/shell/dist/shell/browser`) na raiz, e o `dist` de cada remoto em `/remotes/mapa/`, `/remotes/painel/` e `/remotes/metricas/`. As rotas `/api`, `/bairros`, `/sitemap.xml` e `/robots.txt` vão para a API. Os builds já saem com esses caminhos.
 
 Se um remoto precisar ficar em outro domínio, use `MAPA_PUBLIC_URL`/`PAINEL_PUBLIC_URL` no build dele, ajuste `REMOTES` em `apps/shell/src/app/remotes.ts` e libere CORS para o domínio do shell.
