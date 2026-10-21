@@ -147,6 +147,30 @@ async function bairros(f) {
   return rows.map((r) => ({ ...r, ultimo: r.ultimo?.toISOString() }));
 }
 
+/**
+ * Relatos por setor de abastecimento (reservatório): cada relato cai na menor área que o contém.
+ * Relatos fora das áreas do mapa (chácaras, zona rural) ficam de fora.
+ */
+async function setores(f) {
+  const w = where(f);
+  const { rows } = await pool.query(
+    `SELECT a.setor_id AS id, a.setor AS nome, ${CONTAGENS},
+            count(DISTINCT a.area) FILTER (WHERE status = 'sem-agua')::int AS "areasComFalta",
+            (SELECT count(*)::int FROM areas_abastecimento x WHERE x.setor_id = a.setor_id) AS areas
+       FROM relatos r
+       JOIN LATERAL (
+         SELECT setor_id, setor, area FROM areas_abastecimento a
+          WHERE ST_Covers(a.geom, r.geom::geometry)
+          ORDER BY ST_Area(a.geom) LIMIT 1
+       ) a ON true
+       ${w.sql}
+      GROUP BY a.setor_id, a.setor
+      ORDER BY "semAgua" DESC, total DESC`,
+    w.vals,
+  );
+  return rows;
+}
+
 /** Pontos agregados numa grade de ~200 m (PostGIS), para o mapa do relatório. */
 async function pontos(f) {
   const w = where(f);
@@ -183,15 +207,16 @@ async function recentes(f) {
 
 /** Tudo que o painel precisa numa resposta só (os números sempre batem entre si). */
 export async function metricas(f) {
-  const [r, s, sh, b, p, rec] = await Promise.all([
+  const [r, s, sh, b, p, rec, st] = await Promise.all([
     resumo(f),
     serie(f),
     semanaHora(f),
     bairros(f),
     pontos(f),
     recentes(f),
+    setores(f),
   ]);
-  return { filtros: f, geradoEm: new Date().toISOString(), resumo: r, serie: s, semanaHora: sh, bairros: b, pontos: p, recentes: rec };
+  return { filtros: f, geradoEm: new Date().toISOString(), resumo: r, serie: s, semanaHora: sh, bairros: b, setores: st, pontos: p, recentes: rec };
 }
 
 /**

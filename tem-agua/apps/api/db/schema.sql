@@ -42,3 +42,13 @@ CREATE TABLE IF NOT EXISTS configuracao (
   chave text PRIMARY KEY,
   valor text NOT NULL
 );
+
+-- ---- Setores de abastecimento (mapa "Regiões x Reservatórios") ----
+-- Recarregada pela API a cada subida a partir de packages/contracts/src/abastecimento.json.
+CREATE TABLE IF NOT EXISTS areas_abastecimento (
+  setor_id text NOT NULL,
+  setor    text NOT NULL,
+  area     text NOT NULL,
+  geom     geometry(Geometry, 4326) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS areas_abastecimento_geom_idx ON areas_abastecimento USING gist (geom);

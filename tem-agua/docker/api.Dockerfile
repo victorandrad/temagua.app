@@ -10,6 +10,8 @@ COPY apps/api/*.mjs ./
 COPY apps/api/db ./db
 # Mesma lista de bairros do app (páginas de SEO e sitemap).
 COPY packages/contracts/src/bairros.json ./bairros.json
+# Setores de abastecimento (métricas por reservatório e páginas de bairro).
+COPY packages/contracts/src/abastecimento.json ./abastecimento.json
 USER node
 
 # Os relatos ficam no PostgreSQL (DATABASE_URL); o container da API não guarda estado.

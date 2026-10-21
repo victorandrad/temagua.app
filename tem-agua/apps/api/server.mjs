@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { connect, esquecerAparelhos, pool, recentReports, registrarRelato, segredoDoAparelho } from './db.mjs';
+import { carregarAreas } from './abastecimento.mjs';
 import { geocode } from './geocode.mjs';
 import { paginaBairro, paginaIndice, robots, sitemap } from './seo.mjs';
 import { listaBairros, metricas, monitor, parseFiltros, relatoriosCsv } from './metricas.mjs';
@@ -271,6 +272,7 @@ process.once('SIGINT', () => shutdown('SIGINT'));
 await connect();
 await importLegacyJson();
 segredoAparelho = await segredoDoAparelho();
+await carregarAreas();
 
 // LGPD: o vínculo relato ↔ aparelho só vale 30 dias.
 const esquecer = () =>

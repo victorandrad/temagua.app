@@ -7,6 +7,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { ABASTECIMENTO, abastecimentoDoPonto } from './abastecimento.mjs';
 import { pool } from './db.mjs';
 
 // ---- Bairros: mesma lista do app (packages/contracts/src/bairros.json) ----
@@ -218,6 +219,9 @@ export async function paginaBairro(req, s) {
     .sort((x, y) => x.d - y.d)
     .slice(0, 8);
   const mapa = `/?bairro=${b.slug}`;
+  const abast = abastecimentoDoPonto(b.lng, b.lat);
+  const reservatorios = abast?.setor.estruturas.filter((e) => e.tipo !== 'booster').map((e) => e.nome) ?? [];
+  const mesmoSetor = abast?.setor.areas.map((a) => a.nome).filter((n) => n !== abast.area.nome) ?? [];
   const atualizado = quando(new Date());
 
   const titulo = `Falta de água no ${b.nome}, Salto/SP — situação agora | Tem Água?`;
@@ -244,6 +248,16 @@ export async function paginaBairro(req, s) {
         <a class="btn sec" href="${esc(mapa)}">Estou sem água: avisar os vizinhos</a>
       </div>
     </section>
+
+${
+      abast
+        ? `<h2>Qual reservatório abastece o ${esc(b.nome)}</h2>
+    <p>O ${esc(b.nome)} fica na área <b>${esc(abast.area.nome)}</b>, do setor de abastecimento <b>${esc(abast.setor.nome)}</b>${
+      reservatorios.length ? ` (${esc(reservatorios.join(', '))})` : ''
+    }.${mesmoSetor.length ? ` O mesmo setor abastece: ${esc(mesmoSetor.join(', '))}. Se a falta aparece em várias dessas áreas ao mesmo tempo, o problema provavelmente é no reservatório.` : ''}</p>
+    <p class="sub">Fonte dos setores: mapa <a href="${esc(ABASTECIMENTO.fonte.url)}" rel="noopener">${esc(ABASTECIMENTO.fonte.titulo)}</a>.</p>`
+        : ''
+    }
 
     <h2>Como funciona</h2>
     <p>O Tem Água? é um mapa colaborativo: quando a água acaba ou volta, os moradores do ${esc(b.nome)} e de outros bairros de Salto marcam no mapa, e todo mundo vê em tempo real. Assim dá para saber se a falta é só na sua casa ou no bairro inteiro — sem cadastro.</p>
