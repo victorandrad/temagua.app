@@ -93,8 +93,8 @@ async function resumoBairro(nome) {
        count(*) FILTER (WHERE status = 'voltou'   AND criado_em > now() - interval '24 hours')::int AS volta24,
        count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '7 days')::int  AS falta7,
        count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '30 days')::int AS falta30,
-       max(criado_em) FILTER (WHERE status = 'sem-agua') AS "ultimaFalta",
-       max(criado_em) FILTER (WHERE status = 'voltou')   AS "ultimaVolta"
+       max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'sem-agua' AND encerrado_em IS NULL) AS "ultimaFalta",
+       max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'voltou'   AND encerrado_em IS NULL) AS "ultimaVolta"
      FROM relatos WHERE origem = 'app' AND bairro = $1`,
     [nome],
   );
@@ -105,15 +105,18 @@ async function resumoTodos() {
   const { rows } = await pool.query(
     `SELECT bairro,
        count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '24 hours')::int AS falta24,
-       max(criado_em) FILTER (WHERE status = 'sem-agua') AS "ultimaFalta",
-       max(criado_em) FILTER (WHERE status = 'voltou')   AS "ultimaVolta",
+       max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'sem-agua' AND encerrado_em IS NULL) AS "ultimaFalta",
+       max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'voltou'   AND encerrado_em IS NULL) AS "ultimaVolta",
        max(criado_em) AS ultimo
      FROM relatos WHERE origem = 'app' GROUP BY bairro`,
   );
   return new Map(rows.map((r) => [r.bairro, r]));
 }
 
-/** Situação agora, pelos relatos das últimas 6 h. */
+/**
+ * Situação agora, pelos relatos das últimas 6 h (contadas da última confirmação). Relatos encerrados
+ * (quem avisou a falta avisou depois que voltou) não contam.
+ */
 function situacao(r) {
   const agora = Date.now();
   const falta = r?.ultimaFalta?.getTime() ?? 0;

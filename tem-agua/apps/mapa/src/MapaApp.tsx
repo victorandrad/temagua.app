@@ -3,7 +3,18 @@ import { flushSync } from 'react-dom';
 import { AttributionControl, Map as MlMap, setWorkerUrl, type GeoJSONSource } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection, Point } from 'geojson';
-import { emit, nearestBairro, on, SALTO_BOUNDS, SALTO_CENTER, type MapPadding, type Report } from '@tem-agua/contracts';
+import {
+  emit,
+  frescor,
+  last,
+  nearestBairro,
+  on,
+  relatoAtivo,
+  SALTO_BOUNDS,
+  SALTO_CENTER,
+  type MapPadding,
+  type Report,
+} from '@tem-agua/contracts';
 
 // Por padrão o MapLibre procura o worker ao lado do próprio módulo, que aqui foi empacotado
 // dentro do chunk do remoto. Apontamos para o arquivo publicado como asset (URL absoluta do remoto).
@@ -11,7 +22,6 @@ setWorkerUrl(new URL(workerUrl, import.meta.url).href);
 
 // Estilo cinza claro, sem chave de API e com uso comercial liberado (OpenFreeMap).
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
-const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_PADDING: MapPadding = { top: 0, bottom: 0, left: 0, right: 0 };
 
 // Mesma curva no CSS do pin e na animação do mapa, para os dois andarem juntos.
@@ -42,12 +52,13 @@ function toGeoJSON(reports: Report[]): FeatureCollection<Point> {
   return {
     type: 'FeatureCollection',
     features: reports
-      .filter((r) => now - r.createdAt < DAY_MS)
+      // 12 h desde a última confirmação; encerrados (quem avisou disse o contrário depois) saem.
+      .filter((r) => relatoAtivo(r, now))
       .map((r) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
-        // Relatos mais recentes pesam mais no mapa de calor e ficam mais opacos.
-        properties: { status: r.status, freshness: Math.max(0.25, 1 - (now - r.createdAt) / DAY_MS) },
+        // Relatos mais recentes pesam mais no mapa de calor e ficam mais opacos (meia-vida de 3 h).
+        properties: { status: r.status, freshness: Math.max(0.15, frescor(r, now)) },
       })),
   };
 }
@@ -139,7 +150,7 @@ export function MapaApp() {
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 17, 7],
           'circle-color': ['match', ['get', 'status'], 'sem-agua', '#E11900', '#05A357'],
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14, ['get', 'freshness']],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14, ['max', 0.4, ['get', 'freshness']]],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 1.5,
           'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14, 1],
@@ -173,7 +184,14 @@ export function MapaApp() {
         },
       });
 
-      offs.push(on('reports', (reports) => (map.getSource('reports') as GeoJSONSource).setData(toGeoJSON(reports))));
+      const desenhar = (reports: Report[]) => (map.getSource('reports') as GeoJSONSource).setData(toGeoJSON(reports));
+      offs.push(on('reports', desenhar));
+      // Sem relatos novos o mapa também muda: os antigos perdem peso e expiram com o tempo.
+      const relogio = setInterval(() => {
+        const atuais = last('reports');
+        if (atuais) desenhar(atuais);
+      }, 60_000);
+      offs.push(() => clearInterval(relogio));
       publishCenter();
       // Primeiro quadro completo do mapa: o shell fecha a splash screen.
       map.once('idle', () => emit('map-ready', null));

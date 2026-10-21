@@ -75,6 +75,8 @@ async function resumo(f) {
     pool.query(
       `SELECT ${CONTAGENS},
          count(DISTINCT bairro) FILTER (WHERE status = 'sem-agua')::int AS "bairrosAfetados",
+         -- Aparelhos diferentes que relataram falta (o vínculo some após 30 dias: períodos antigos contam menos).
+         count(DISTINCT aparelho) FILTER (WHERE status = 'sem-agua')::int AS aparelhos,
          mode() WITHIN GROUP (ORDER BY hora) FILTER (WHERE status = 'sem-agua') AS "horaPico",
          bool_or(origem = 'demo') AS "temDemo"
        FROM relatos ${atual.sql}`,

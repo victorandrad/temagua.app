@@ -1,5 +1,17 @@
 import { computed, effect, Injectable, signal } from '@angular/core';
-import { BAIRROS, coarsen, emit, last, on, toPublicReport, type Report, type WaterStatus } from '@tem-agua/contracts';
+import {
+  BAIRROS,
+  CABECALHO_APARELHO,
+  coarsen,
+  emit,
+  idDoAparelho,
+  last,
+  on,
+  relatoAtivo,
+  toPublicReport,
+  type Report,
+  type WaterStatus,
+} from '@tem-agua/contracts';
 
 const STORAGE_KEY = 'tem-agua:my-reports:v2';
 const API = '/api';
@@ -11,8 +23,12 @@ export type LiveStatus = 'connecting' | 'online' | 'offline';
 /**
  * Dono dos relatos. Junta três fontes e publica o resultado no barramento ('reports'):
  * - demonstração (fictícios, gerados no aparelho);
- * - servidor: relatos de todos os aparelhos, com posição arredondada, recebidos em tempo real (SSE);
+ * - servidor: relatos de todos os aparelhos, com posição arredondada, recebidos em tempo real (WebSocket);
  * - os deste aparelho, com posição exata, guardados no localStorage.
+ *
+ * Um relato ativo por aparelho: relatar de novo o mesmo status renova o relato ativo (mesmo id), e o
+ * status oposto encerra o anterior. O app já aplica isso na hora; o servidor confirma (e corrige, se
+ * o aparelho perdeu o histórico local) na resposta do POST.
  */
 @Injectable({ providedIn: 'root' })
 export class ReportsService {
@@ -30,25 +46,41 @@ export class ReportsService {
   constructor() {
     effect(() => emit('reports', this.reports()));
     effect(() => saveMine(this.mine()));
-    on('report-submit', ({ status }) => this.add(status), { replay: false });
+    on('report-submit', ({ status, reconfirmar }) => this.add(status, reconfirmar), { replay: false });
     this.connect();
   }
 
-  add(status: WaterStatus): void {
-    const center = last('center');
-    if (!center) return;
-    const report: Report = {
-      id: crypto.randomUUID(),
-      lng: center.lng,
-      lat: center.lat,
-      bairro: center.bairro,
-      status,
-      createdAt: Date.now(),
-      mine: true,
-      synced: false,
-    };
-    this.mine.update((list) => [...list, report]);
+  /**
+   * Novo relato na posição do pin. Com `reconfirmar` (resposta ao "Ainda sem água?"), usa a posição
+   * daquele relato deste aparelho.
+   */
+  add(status: WaterStatus, reconfirmar?: string): void {
+    const agora = Date.now();
+    const origem = reconfirmar ? this.mine().find((r) => r.id === reconfirmar) : last('center');
+    if (!origem) return;
+    const posicao = { lng: origem.lng, lat: origem.lat, bairro: origem.bairro };
+    const ativo = this.mine()
+      .filter((r) => relatoAtivo(r, agora))
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+
+    let report: Report;
+    if (ativo?.status === status) {
+      // Mesmo status: renova o relato ativo (mesmo id), com a posição nova.
+      report = { ...ativo, ...posicao, confirmedAt: agora, synced: false };
+      this.mine.update((list) => list.map((r) => (r.id === ativo.id ? report : r)));
+    } else {
+      // Status oposto (ou nenhum ativo): encerra o(s) anterior(es) e cria outro.
+      report = { id: crypto.randomUUID(), ...posicao, status, createdAt: agora, mine: true, synced: false };
+      this.mine.update((list) => [...list.map((r) => (relatoAtivo(r, agora) ? { ...r, closedAt: agora } : r)), report]);
+    }
     void this.send(report);
+  }
+
+  /** Aplica a versão do servidor de um relato (novo, renovado ou encerrado). */
+  private upsertRemote(report: Report): void {
+    this.remote.update((list) =>
+      list.some((r) => r.id === report.id) ? list.map((r) => (r.id === report.id ? report : r)) : [...list, report],
+    );
   }
 
   private connect(): void {
@@ -67,7 +99,7 @@ export class ReportsService {
       const msg = JSON.parse(e.data as string) as { type: string; report?: Report };
       const report = msg.report;
       if (msg.type !== 'report' || !report) return;
-      this.remote.update((list) => (list.some((r) => r.id === report.id) ? list : [...list, report]));
+      this.upsertRemote(report);
     });
 
     // Caiu (API reiniciou, celular trocou de rede, túnel oscilou): tenta de novo em alguns segundos.
@@ -79,7 +111,7 @@ export class ReportsService {
 
   private async refresh(): Promise<void> {
     try {
-      // 7 dias: o mapa mostra 24 h, mas o ranking de bairros da home tem filtro de até 7 dias.
+      // 7 dias: o mapa mostra 12 h, mas o ranking de bairros da home tem filtro de até 7 dias.
       const res = await fetch(`${API}/reports?horas=168`);
       if (res.ok) this.remote.set((await res.json()) as Report[]);
     } catch {
@@ -93,11 +125,27 @@ export class ReportsService {
     try {
       const res = await fetch(`${API}/reports`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [CABECALHO_APARELHO]: idDoAparelho() },
         body: JSON.stringify({ id, lng, lat, bairro, status }),
       });
       if (!res.ok) return;
-      this.mine.update((list) => list.map((r) => (r.id === id ? { ...r, synced: true } : r)));
+      const { report: srv, encerrados = [] } = (await res.json()) as { report: Report; encerrados?: Report[] };
+      this.mine.update((list) => {
+        let out = list;
+        // O servidor renovou outro relato ativo deste aparelho (ex.: o histórico local foi apagado):
+        // o relato local passa a ter o id dele.
+        if (srv.id !== id) out = out.filter((r) => r.id !== srv.id).map((r) => (r.id === id ? { ...r, id: srv.id } : r));
+        const fechados = new Map(encerrados.map((e) => [e.id, e.closedAt]));
+        return out.map((r) =>
+          r.id === srv.id
+            ? { ...r, createdAt: srv.createdAt, confirmedAt: srv.confirmedAt, closedAt: srv.closedAt, synced: true }
+            : fechados.has(r.id)
+              ? { ...r, closedAt: fechados.get(r.id) }
+              : r,
+        );
+      });
+      this.upsertRemote(srv);
+      encerrados.forEach((e) => this.upsertRemote(e));
     } catch {
       // Fica pendente (synced: false) e é reenviado na próxima conexão.
     }

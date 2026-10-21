@@ -20,6 +20,8 @@ export interface Metricas {
   geradoEm: string;
   resumo: Contagens & {
     bairrosAfetados: number;
+    /** Aparelhos diferentes que relataram falta (só os últimos 30 dias guardam o aparelho). */
+    aparelhos: number;
     horaPico: number | null;
     temDemo: boolean;
     anterior: Contagens & { de: string; ate: string };

@@ -235,6 +235,9 @@ function fimPdf() {
               que em {{ dataBr(r.anterior.de, true) }}–{{ dataBr(r.anterior.ate, true) }}
             </template>
           </p>
+          <p v-if="r.aparelhos" class="ta-met__nota">
+            de {{ nf.format(r.aparelhos) }} {{ r.aparelhos === 1 ? 'aparelho' : 'aparelhos diferentes' }}
+          </p>
         </article>
         <article class="ta-met__tile">
           <h2 class="ta-met__label">Água voltou</h2>

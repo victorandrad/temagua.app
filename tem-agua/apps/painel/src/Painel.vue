@@ -5,6 +5,9 @@ import {
   distanceKm,
   emit,
   on,
+  RECONFIRMAR_MS,
+  relatoAtivo,
+  ultimaConfirmacao,
   type Bairro,
   type MapCenter,
   type Report,
@@ -21,7 +24,10 @@ const sent = ref<WaterStatus | null>(null);
 const peek = ref<HTMLElement | null>(null);
 const now = ref(Date.now());
 
-const recent = computed(() => reports.value.filter((r) => now.value - r.createdAt < WINDOW_MS));
+// Situação agora: relatos ativos confirmados nas últimas 6 h (encerrados não contam).
+const recent = computed(() =>
+  reports.value.filter((r) => relatoAtivo(r, now.value) && now.value - ultimaConfirmacao(r) < WINDOW_MS),
+);
 
 const nearby = computed(() => {
   const c = center.value;
@@ -34,7 +40,7 @@ const semAgua = computed(() => nearby.value.filter((r) => r.status === 'sem-agua
 const status = computed<'sem-dados' | WaterStatus>(() => {
   if (!nearby.value.length) return 'sem-dados';
   const latest = (s: WaterStatus) =>
-    Math.max(0, ...nearby.value.filter((r) => r.status === s).map((r) => r.createdAt));
+    Math.max(0, ...nearby.value.filter((r) => r.status === s).map(ultimaConfirmacao));
   return latest('voltou') > latest('sem-agua') ? 'voltou' : 'sem-agua';
 });
 
@@ -50,7 +56,7 @@ const headline = computed(
 const subline = computed(() => {
   const bairro = center.value?.bairro ?? 'Salto';
   if (!nearby.value.length) return `${bairro} · nenhum relato nas últimas 6 h`;
-  const latest = Math.max(...nearby.value.map((r) => r.createdAt));
+  const latest = Math.max(...nearby.value.map(ultimaConfirmacao));
   const n = semAgua.value.length;
   const relatos = n === 1 ? '1 vizinho sem água' : `${n} vizinhos sem água`;
   return `${bairro} · ${relatos} · último ${formatAgo(latest)}`;
@@ -151,10 +157,20 @@ function formatAgo(ts: number): string {
   return `há ${Math.round(h / 24)} dias`;
 }
 
-let sentTimer: ReturnType<typeof setTimeout> | undefined;
+// ---- "Ainda sem água?": quem avisou a falta confirma depois de 4 h (renova por mais 12 h) ----
+const aConfirmar = computed(() =>
+  reports.value
+    .filter((r) => r.mine && r.status === 'sem-agua' && relatoAtivo(r, now.value))
+    .filter((r) => now.value - ultimaConfirmacao(r) >= RECONFIRMAR_MS)
+    .sort((a, b) => ultimaConfirmacao(b) - ultimaConfirmacao(a))[0],
+);
 
-function report(s: WaterStatus) {
-  emit('report-submit', { status: s });
+let sentTimer: ReturnType<typeof setTimeout> | undefined;
+const sentBairro = ref('');
+
+function report(s: WaterStatus, reconfirmar?: Report) {
+  emit('report-submit', { status: s, reconfirmar: reconfirmar?.id });
+  sentBairro.value = reconfirmar?.bairro ?? center.value?.bairro ?? 'Salto';
   sent.value = s;
   clearTimeout(sentTimer);
   sentTimer = setTimeout(() => (sent.value = null), 3500);
@@ -301,10 +317,19 @@ onBeforeUnmount(() => {
           </svg>
         </div>
         <p class="ta-done__title">Obrigado pelo relato!</p>
-        <p class="ta-done__sub">Ele já aparece no mapa de {{ center?.bairro ?? 'Salto' }} e ajuda seus vizinhos.</p>
+        <p class="ta-done__sub">Ele já aparece no mapa de {{ sentBairro }} e ajuda seus vizinhos.</p>
       </div>
 
       <template v-else>
+        <div v-if="aConfirmar" class="ta-confirma" role="group" aria-labelledby="ta-confirma-titulo">
+          <p id="ta-confirma-titulo" class="ta-confirma__titulo">Ainda sem água no {{ aConfirmar.bairro }}?</p>
+          <p class="ta-confirma__sub">Você avisou {{ formatAgo(ultimaConfirmacao(aConfirmar)) }}. Confirme para o aviso continuar no mapa.</p>
+          <div class="ta-confirma__acoes">
+            <button type="button" class="ta-btn ta-btn--primary" @click="report('sem-agua', aConfirmar)">Ainda sem água</button>
+            <button type="button" class="ta-btn ta-btn--secondary" @click="report('voltou', aConfirmar)">A água voltou</button>
+          </div>
+        </div>
+
         <div class="ta-status">
           <span class="ta-status__dot" :class="`is-${status}`"></span>
           <div class="ta-status__text">
@@ -424,6 +449,7 @@ onBeforeUnmount(() => {
 
       <p class="ta-privacy">
         Para os outros moradores, sua posição aparece arredondada para cerca de 10 m. Nunca mostramos endereços.
+        Seu aviso fica 12 h no mapa; avisar de novo renova, e "a água voltou" encerra o anterior.
       </p>
     </div>
     </Transition>

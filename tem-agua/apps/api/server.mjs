@@ -1,8 +1,9 @@
 // API do Tem Água? (Node + PostgreSQL/PostGIS + ws).
 //
 //   GET  /api/reports              → relatos reais das últimas N horas (horas=1..168, padrão 24)
-//   POST /api/reports              → novo relato { id, lng, lat, bairro, status }
-//   WS   /api/ws                   → { type: 'report', report } a cada relato novo
+//   POST /api/reports              → relato { id, lng, lat, bairro, status } + cabeçalho X-Aparelho (opcional)
+//                                    → { report, encerrados } (um relato ativo por aparelho, ver registrarRelato)
+//   WS   /api/ws                   → { type: 'report', report } a cada relato novo, renovado ou encerrado
 //   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro, demo)
 //   GET  /api/metricas/bairros     → bairros com relatos (para o filtro)
 //   GET  /bairros, /bairros/<slug> → páginas HTML para o Google (situação por bairro, só relatos reais)
@@ -14,12 +15,13 @@
 // No dev, o shell (Angular) repassa /api para cá via proxy.conf.json; no Docker, o Nginx.
 // WebSocket e não Server-Sent Events porque os Quick Tunnels da Cloudflare seguram o stream SSE.
 
+import { createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { connect, insertReport, pool, recentReports } from './db.mjs';
+import { connect, esquecerAparelhos, pool, recentReports, registrarRelato, segredoDoAparelho } from './db.mjs';
 import { geocode } from './geocode.mjs';
 import { paginaBairro, paginaIndice, robots, sitemap } from './seo.mjs';
 import { listaBairros, metricas, monitor, parseFiltros, relatoriosCsv } from './metricas.mjs';
@@ -53,6 +55,16 @@ function rateLimited(ip, max = RATE_LIMIT.max) {
   recent.push(now);
   hits.set(ip, recent);
   return recent.length > max;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let segredoAparelho = '';
+
+/** HMAC do UUID do aparelho (cabeçalho X-Aparelho). O UUID em si nunca é guardado. */
+function aparelhoDe(req) {
+  const id = String(req.headers['x-aparelho'] ?? '').trim();
+  if (!UUID_RE.test(id)) return null;
+  return createHmac('sha256', segredoAparelho).update(id.toLowerCase()).digest('hex');
 }
 
 /** Valida e normaliza o relato vindo do cliente. Retorna null se inválido. */
@@ -112,7 +124,11 @@ async function handle(req, res) {
   }
 
   if (url.pathname === '/api/reports' && req.method === 'POST') {
-    if (rateLimited(clientIp(req))) return sendJson(res, 429, { error: 'Muitos relatos em pouco tempo. Tente daqui a pouco.' });
+    const aparelho = aparelhoDe(req);
+    // Por IP e por aparelho: numa rede de operadora muita gente sai pelo mesmo IP.
+    if (rateLimited(clientIp(req), RATE_LIMIT.max * 3) || (aparelho && rateLimited(`ap:${aparelho}`))) {
+      return sendJson(res, 429, { error: 'Muitos relatos em pouco tempo. Tente daqui a pouco.' });
+    }
     let input;
     try {
       input = parseReport(await readBody(req));
@@ -122,9 +138,10 @@ async function handle(req, res) {
     if (!input) return sendJson(res, 422, { error: 'Relato inválido.' });
 
     // Reenvio do mesmo relato (ex.: retry depois de cair a conexão) não duplica.
-    const { report, created } = await insertReport(input);
-    if (created) broadcast(report);
-    return sendJson(res, created ? 201 : 200, report);
+    const { report, mudou, criado, encerrados } = await registrarRelato(input, aparelho);
+    if (mudou) broadcast(report);
+    for (const r of encerrados) broadcast(r);
+    return sendJson(res, criado ? 201 : 200, { report, encerrados });
   }
 
   if (url.pathname === '/api/metricas' && req.method === 'GET') {
@@ -253,5 +270,14 @@ process.once('SIGINT', () => shutdown('SIGINT'));
 
 await connect();
 await importLegacyJson();
+segredoAparelho = await segredoDoAparelho();
+
+// LGPD: o vínculo relato ↔ aparelho só vale 30 dias.
+const esquecer = () =>
+  esquecerAparelhos()
+    .then((n) => n && console.log(`[api] vínculo com o aparelho apagado de ${n} relato(s) antigo(s)`))
+    .catch((err) => console.error('[api] falha ao apagar vínculos de aparelho', err));
+await esquecer();
+setInterval(esquecer, 60 * 60 * 1000).unref();
 const { rows } = await pool.query(`SELECT count(*)::int AS n FROM relatos`);
 server.listen(PORT, () => console.log(`[api] ouvindo em http://localhost:${PORT} · ${rows[0].n} relatos no banco`));

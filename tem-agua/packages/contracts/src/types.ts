@@ -7,6 +7,10 @@ export interface Report {
   bairro: string;
   status: WaterStatus;
   createdAt: number;
+  /** Última vez que o mesmo aparelho confirmou o relato (renova o prazo no mapa). */
+  confirmedAt?: number | null;
+  /** Quando o relato foi encerrado: o aparelho que avisou mandou o status oposto. */
+  closedAt?: number | null;
   demo?: boolean;
   /** Relato feito neste aparelho (guarda a posição exata, que nunca sai daqui). */
   mine?: boolean;
@@ -46,7 +50,11 @@ export interface BusEvents {
   /** Mapa → todos: centro do mapa (posição do pin) depois que o usuário para de arrastar. */
   center: MapCenter;
   /** Painel → shell: usuário relatou o status da água na posição do pin. */
-  'report-submit': { status: WaterStatus };
+  'report-submit': {
+    status: WaterStatus;
+    /** Responde "Ainda sem água?" sobre um relato deste aparelho: usa a posição dele, não a do pin. */
+    reconfirmar?: string;
+  };
   /** Shell/painel → mapa: mover o mapa para um ponto. */
   'fly-to': FlyTo;
   /** Shell → mapa: centralizar na localização do GPS (assine com { replay: false }). */
