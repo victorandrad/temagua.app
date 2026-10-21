@@ -58,3 +58,17 @@ export function searchBairros(query: string, limit = 6): Bairro[] {
   if (!q) return [];
   return BAIRROS.filter((b) => norm(b.nome).includes(q)).slice(0, limit);
 }
+
+/** "Jardim São João" → "jardim-sao-joao" (URLs das páginas de bairro e do link /?bairro=). */
+export function slugBairro(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export function bairroPorSlug(slug: string): Bairro | undefined {
+  return BAIRROS.find((b) => slugBairro(b.nome) === slug);
+}
