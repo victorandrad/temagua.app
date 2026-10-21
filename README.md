@@ -79,9 +79,9 @@ O **Tem Água?** transforma cada morador num sensor: quem está sem água marca 
 <tr>
 <td width="50%" valign="top">
 
-**📊 Painel de métricas** — em `/metricas`
+**📊 Painel de métricas** — em `/metricas` (tela grande)
 
-Indicadores com comparação ao período anterior, relatos por hora e por dia, "quando falta água" (dia da semana × hora), bairros mais afetados e mapa por área. Filtra por período e bairro, atualiza sozinho, **exporta CSV** e gera um **relatório em PDF** de 3 páginas.
+Indicadores com comparação ao período anterior, relatos por hora e por dia, "quando falta água" (dia da semana × hora), bairros mais afetados e mapa por área. Filtra por período e bairro, atualiza sozinho, **exporta CSV** e gera um **relatório em PDF** de 3 páginas. Abre só em tela grande (computador, notebook ou TV, a partir de 1024 px); no celular aparece um aviso com o link para abrir no computador.
 
 </td>
 <td width="50%" valign="top">

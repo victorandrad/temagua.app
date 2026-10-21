@@ -72,6 +72,10 @@ O barramento (`contracts/src/bus.ts`) guarda o estado em `window.__TEM_AGUA_BUS_
 - `index.html` tem marcadores `__SITE_URL__` e `__GOOGLE_SITE_VERIFICATION__` trocados pelo Nginx (`sub_filter`). O Nginx agora é **template** (`docker/nginx.conf.template` → `/etc/nginx/templates/`), com `NGINX_ENVSUBST_FILTER` restrito a essas duas variáveis; use `$http_host` (mantém a porta), não `$host`. Dev: `proxy.conf.json` repassa `/bairros`, `/sitemap.xml` e `/robots.txt` para a API.
 - Sem JavaScript, um `<noscript><style>` esconde a splash (o script que a fecha não roda).
 
+### Painel de métricas só em tela grande
+
+`/metricas` (inclusive o monitoramento) só abre com a janela de pelo menos 1024 px (`TELA_GRANDE` em `apps/shell/src/app/tela-grande.ts`, signal `telaGrande()` que acompanha redimensionar/girar). Abaixo disso a `MetricasPage` mostra um aviso ("Voltar ao mapa" / "Copiar link para o computador"), **não carrega o remoto** e fecha a splash ela mesma; o selo "Métricas" some da home. Os atalhos do PWA continuam apontando para `/metricas` (caem no aviso no celular).
+
 ### Splash screen e PWA
 
 - Splash inline em `apps/shell/src/index.html` (HTML+CSS+script, aparece antes do JS). Fecha com `window.temAguaSplash.fechar()` (`splash.ts`): na home quando o mapa emite `map-ready` (primeiro `idle` do MapLibre); em `/metricas` via `<ta-remote-slot [fechaSplash]="true">`; em erro de remoto sempre. Mínimo de 700 ms na tela, limite de 10 s.
