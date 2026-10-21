@@ -100,10 +100,11 @@ O mapa de calor em tela cheia, para deixar numa TV. As manchas de falta (vermelh
 
 | | |
 |---|---|
+| ⏱️ **Aviso com prazo** | O aviso fica 12 h no mapa e vai perdendo força. Avisar de novo renova; "a água voltou" encerra o aviso anterior. Depois de 4 h o app pergunta "Ainda sem água?" |
 | 🔒 **Privacidade** | Sem cadastro e sem endereço. A posição exata fica no aparelho; o servidor só recebe e guarda a posição arredondada (~11 m) |
 | 🗄️ **Dados para análise** | Cada relato vira uma linha no PostgreSQL + PostGIS com dia, hora (fuso de Salto) e coordenadas |
 | 🔍 **Encontrável no Google** | Uma página por bairro ("falta de água no Jardim Nair Maria"), sitemap, Open Graph para links no WhatsApp |
-| 🛡️ **Proteção contra abuso** | Só aceita pontos dentro de Salto e no máximo 10 relatos por minuto por IP |
+| 🛡️ **Um aviso por aparelho** | Cada aparelho tem um aviso ativo por vez: ninguém infla o ranking repetindo o botão. O servidor guarda só um código embaralhado do aparelho e o apaga após 30 dias. Só aceita pontos dentro de Salto |
 
 ## 🚀 Rode em 1 minuto
 

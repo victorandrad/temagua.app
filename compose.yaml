@@ -38,6 +38,8 @@ services:
       DATABASE_URL: postgres://temagua:${POSTGRES_PASSWORD:-temagua}@db:5432/temagua
       # Indexação no Google: domínio público (ex.: https://temagua.app). Vazio = usa a origem da requisição.
       SITE_URL: ${SITE_URL:-}
+      # Segredo do hash do aparelho (opcional: sem ele a API gera um e guarda no banco).
+      APARELHO_SEGREDO: ${APARELHO_SEGREDO:-}
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
     depends_on:
       db:
