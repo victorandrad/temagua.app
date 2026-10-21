@@ -79,7 +79,8 @@ export class ReportsService {
 
   private async refresh(): Promise<void> {
     try {
-      const res = await fetch(`${API}/reports`);
+      // 7 dias: o mapa mostra 24 h, mas o ranking de bairros da home tem filtro de até 7 dias.
+      const res = await fetch(`${API}/reports?horas=168`);
       if (res.ok) this.remote.set((await res.json()) as Report[]);
     } catch {
       // Sem rede: fica com o que já tem; o próximo 'open' tenta de novo.
