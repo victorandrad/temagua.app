@@ -175,7 +175,8 @@ export function MapaApp() {
           mostrarAbastecimento(map, c.abastecimento);
           filtrarSetores(map, c.setores ?? null);
           // Só enquadra quando a pessoa muda a seleção, não no valor repetido ao montar o mapa.
-          if (!replay && c.enquadrar && c.abastecimento && c.setores?.length) enquadrarSetores(map, c.setores);
+          // "Todos" (null) enquadra a cidade inteira; "Nenhum" ([]) não mexe no mapa.
+          if (!replay && c.enquadrar && c.abastecimento && c.setores?.length !== 0) enquadrarSetores(map, c.setores ?? null);
         }),
       );
       replay = false;

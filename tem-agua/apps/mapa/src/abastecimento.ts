@@ -136,9 +136,9 @@ export function filtrarSetores(map: MlMap, setores: string[] | null): void {
   for (const id of CAMADAS) if (map.getLayer(id)) map.setFilter(id, filtro);
 }
 
-/** Enquadra o mapa nas áreas dos setores escolhidos. */
-export function enquadrarSetores(map: MlMap, setores: string[]): void {
-  const pontos = ABASTECIMENTO.setores.filter((s) => setores.includes(s.id)).flatMap((s) => s.areas.flatMap((a) => a.anel));
+/** Enquadra o mapa nas áreas dos setores escolhidos (null = todos). */
+export function enquadrarSetores(map: MlMap, setores: string[] | null): void {
+  const pontos = ABASTECIMENTO.setores.filter((s) => !setores || setores.includes(s.id)).flatMap((s) => s.areas.flatMap((a) => a.anel));
   if (!pontos.length) return;
   const lngs = pontos.map((p) => p[0]);
   const lats = pontos.map((p) => p[1]);
