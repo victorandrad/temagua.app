@@ -1,6 +1,7 @@
 .ta-sheet {
   position: relative;
-  max-height: 80vh;
+  /* O shell informa quanto espaço sobra abaixo da busca (--ta-sheet-max). */
+  max-height: min(80vh, var(--ta-sheet-max, 80vh));
   overflow-y: auto;
   overscroll-behavior: contain;
   background: #fff;
@@ -226,9 +227,32 @@
   font-weight: 600;
 }
 
-.ta-rank__name {
+.ta-rank__corpo {
+  display: grid;
   flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ta-rank__name {
+  overflow: hidden;
   font-size: 15px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ta-rank__barra {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #f3f3f3;
+}
+
+.ta-rank__barra span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #e11900;
 }
 
 .ta-rank__count {
@@ -256,13 +280,335 @@
 /* ---- Desktop: painel flutuante à esquerda ---- */
 
 @media (min-width: 768px) {
+  /* Dentro da barra lateral do shell: quem rola e tem sombra é a barra, não o painel. */
   .ta-sheet {
-    max-height: calc(100vh - 132px);
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .ta-sheet__peek {
     padding-bottom: 16px;
+  }
+}
+
+/* ---- Ranking: cabeçalho com filtro de período ---- */
+
+.ta-rank-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.ta-rank-head .ta-sheet__section {
+  margin: 0;
+}
+
+.ta-seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: #f0f0f0;
+}
+
+.ta-seg button {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #5e5e5e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ta-seg button.is-on {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ta-seg button:focus-visible,
+.ta-rankd__item:focus-visible,
+.ta-rank__item:focus-visible,
+.ta-rank-mais:focus-visible {
+  outline: 3px solid #276ef1;
+  outline-offset: 2px;
+}
+
+.ta-rank-mais {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: #f3f3f3;
+  color: #000;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ta-rank-mais:hover {
+  background: #eaeaea;
+}
+
+/* ---- Ranking no desktop: barra empilhada + números + último relato ---- */
+
+.ta-rank-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+  color: #5e5e5e;
+  font-size: 12px;
+}
+
+.ta-rank-legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ta-rank-legenda i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.ta-rank-legenda i.is-sem-agua,
+.ta-rankd__barra .is-sem-agua {
+  background: #e11900;
+}
+
+.ta-rank-legenda i.is-voltou,
+.ta-rankd__barra .is-voltou {
+  background: #05a357;
+}
+
+.ta-rank-legenda__periodo {
+  margin-left: auto;
+  color: #8a8a8a;
+}
+
+.ta-rankd {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ta-rankd__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 6px;
+  border: 0;
+  border-bottom: 1px solid #eee;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ta-rankd__item:hover {
+  background: #f7f7f7;
+}
+
+.ta-rankd__pos {
+  flex: none;
+  width: 20px;
+  padding-top: 1px;
+  color: #8a8a8a;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ta-rankd__corpo {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ta-rankd__linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ta-rankd__nome {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ta-rankd__nums {
+  flex: none;
+  color: #5e5e5e;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ta-rankd__nums b {
+  color: #b51400;
+  font-weight: 700;
+}
+
+.ta-rankd__nums b.is-voltou {
+  color: #04804a;
+}
+
+.ta-rankd__linha--2 {
+  align-items: center;
+}
+
+.ta-rankd__linha--2 .ta-rankd__barra {
+  flex: 1;
+}
+
+/* Falta e volta lado a lado, com 2 px de espaço entre as partes. */
+.ta-rankd__barra {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+}
+
+.ta-rankd__barra span {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.ta-rankd__barra span:last-child {
+  border-radius: 2px 4px 4px 2px;
+}
+
+.ta-rankd__quando {
+  flex: none;
+  min-width: 64px;
+  color: #8a8a8a;
+  font-size: 11px;
+  text-align: right;
+}
+
+@media (min-width: 768px) {
+  /* No desktop o painel não é um bottom sheet: sem alça, ranking sempre aberto. */
+  .ta-sheet__grip {
+    display: none;
+  }
+
+  .ta-sheet__peek {
+    padding-top: 16px;
+  }
+}
+
+/* ---- "Água voltando": bairros cujo último relato do período foi de volta ---- */
+
+.ta-voltando {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #effaf4;
+}
+
+.ta-voltando__titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: #04613a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ta-voltando__titulo i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #05a357;
+}
+
+.ta-voltando__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ta-voltando__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #bfe6cf;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ta-voltando__chip span {
+  color: #5e5e5e;
+  font-size: 11px;
+}
+
+.ta-voltando__chip:hover {
+  border-color: #05a357;
+}
+
+.ta-voltando__chip:focus-visible {
+  outline: 3px solid #276ef1;
+  outline-offset: 2px;
+}
+
+/* ---- Abrir/fechar animado no celular ---- */
+
+.ta-sheet__grip span {
+  transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 240ms ease;
+}
+
+.ta-sheet.is-expanded .ta-sheet__grip span {
+  width: 56px;
+  background: #9e9e9e;
+}
+
+/* Fundo escurecido atrás do painel aberto (fica dentro do slot do painel, abaixo dele). */
+.ta-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ta-fundo-enter-active,
+.ta-fundo-leave-active {
+  transition: opacity 320ms ease;
+}
+
+.ta-fundo-enter-from,
+.ta-fundo-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ta-sheet__grip span,
+  .ta-fundo-enter-active,
+  .ta-fundo-leave-active {
+    transition: none;
   }
 }
