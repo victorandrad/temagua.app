@@ -7,7 +7,9 @@
   font-family: inherit;
 }
 
-.ta-mapa__canvas {
+/* Mais específico que `.maplibregl-map { position: relative }` do CSS do MapLibre (o container
+   recebe as duas classes): não pode depender da ordem dos <style>. */
+.ta-mapa .ta-mapa__canvas {
   position: absolute;
   inset: 0;
 }
