@@ -63,6 +63,7 @@ export function MapaApp() {
   const [drag, setDrag] = useState({ dx: 0, dy: 0, snapping: false });
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const dragRef = useRef<HTMLDivElement>(null);
+  const locateRef = useRef<() => void>(() => {});
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -174,11 +175,15 @@ export function MapaApp() {
 
       offs.push(on('reports', (reports) => (map.getSource('reports') as GeoJSONSource).setData(toGeoJSON(reports))));
       publishCenter();
+      // Primeiro quadro completo do mapa: o shell fecha a splash screen.
+      map.once('idle', () => emit('map-ready', null));
     });
 
     offs.push(
       on('fly-to', ({ lng, lat, zoom }) => map.flyTo({ center: [lng, lat], zoom: zoom ?? 15.5, duration: 900, essential: true })),
     );
+    // "Sua localização" na busca do shell. Sem replay: um pedido antigo não pode disparar o GPS ao montar.
+    offs.push(on('locate', () => locateRef.current(), { replay: false }));
     offs.push(
       on('map-padding', (p) => {
         setPadding(p);
@@ -229,6 +234,8 @@ export function MapaApp() {
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
     );
   };
+
+  locateRef.current = locate;
 
   // ---- Arrastar o próprio pin ----
   // Ao soltar, o mapa desliza até o ponto onde o pin caiu e o pin volta ao centro na mesma

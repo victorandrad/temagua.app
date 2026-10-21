@@ -49,6 +49,10 @@ export interface BusEvents {
   'report-submit': { status: WaterStatus };
   /** Shell/painel → mapa: mover o mapa para um ponto. */
   'fly-to': FlyTo;
+  /** Shell → mapa: centralizar na localização do GPS (assine com { replay: false }). */
+  locate: null;
+  /** Mapa → shell: estilo e primeiros tiles carregados (o shell fecha a splash screen). */
+  'map-ready': null;
   /** Painel → shell: altura da parte recolhida do bottom sheet. */
   'sheet-height': number;
   /** Shell → mapa: área do mapa coberta por elementos do layout (busca, painel). */

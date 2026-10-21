@@ -1,5 +1,6 @@
 import { afterNextRender, Component, ElementRef, input, OnDestroy, signal, viewChild } from '@angular/core';
 import { loadMount, type RemoteName } from './remotes';
+import { fecharSplash } from './splash';
 
 /** Carrega um microfrontend remoto e o monta dentro deste elemento. Se falhar, só ele cai. */
 @Component({
@@ -35,6 +36,8 @@ export class RemoteSlot implements OnDestroy {
   readonly remote = input.required<RemoteName>();
   readonly loadingLabel = input('Carregando…');
   readonly errorLabel = input('Não foi possível carregar esta parte do app.');
+  /** Fecha a splash screen assim que este remoto montar (telas sem mapa, como /metricas). */
+  readonly fechaSplash = input(false);
 
   protected readonly state = signal<'loading' | 'ready' | 'error'>('loading');
   private readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
@@ -51,9 +54,11 @@ export class RemoteSlot implements OnDestroy {
       this.unmount?.();
       this.unmount = mount(this.host().nativeElement);
       this.state.set('ready');
+      if (this.fechaSplash()) fecharSplash();
     } catch (err) {
       console.error(`[shell] falha ao carregar o remoto "${this.remote()}"`, err);
       this.state.set('error');
+      fecharSplash(); // a pessoa precisa ver a mensagem de erro e o "Tentar de novo"
     }
   }
 
