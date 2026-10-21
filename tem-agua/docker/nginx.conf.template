@@ -1,0 +1,127 @@
+# Serve o shell, os remotos e repassa a API — tudo na mesma origem (requisito do GPS em HTTPS,
+# do worker do MapLibre e para não precisar de CORS).
+#
+# É um TEMPLATE: na inicialização a imagem oficial do Nginx troca ${SITE_URL} e
+# ${GOOGLE_SITE_VERIFICATION} pelas variáveis de ambiente (NGINX_ENVSUBST_FILTER no compose limita a
+# essas duas; as variáveis do próprio Nginx, como $host, não são tocadas).
+
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  ''      close;
+}
+
+# Atrás de um túnel/proxy HTTPS (cloudflared, ngrok) o esquema real vem no X-Forwarded-Proto.
+map $http_x_forwarded_proto $proto {
+  default $http_x_forwarded_proto;
+  ''      $scheme;
+}
+
+# URL pública para canonical/Open Graph: SITE_URL ou, se vazia, a origem da requisição.
+map "${SITE_URL}" $site_url {
+  ""      $proto://$http_host; # $http_host mantém a porta (ex.: localhost:8080)
+  default "${SITE_URL}";
+}
+
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+  server_tokens off;
+
+  gzip on;
+  gzip_comp_level 6;
+  gzip_min_length 1024;
+  gzip_types text/css application/javascript text/javascript application/json image/svg+xml application/xml;
+
+  location = /healthz {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok\n";
+  }
+
+  # ---- API ----
+
+  location = /api/ws {
+    proxy_pass http://api:4300;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # A API manda ping a cada 25 s; isto só derruba conexões realmente mortas.
+    proxy_read_timeout 1h;
+  }
+
+  # ^~: nenhuma regex abaixo (ex.: .js/.mjs) pode capturar uma rota da API.
+  location ^~ /api/ {
+    proxy_pass http://api:4300;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $proto;
+  }
+
+  # ---- Indexação no Google: páginas de bairro, sitemap e robots vêm da API (HTML no servidor) ----
+
+  location ~ ^/(robots\.txt|sitemap\.xml)$ {
+    proxy_pass http://api:4300;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $proto;
+  }
+
+  location ^~ /bairros {
+    proxy_pass http://api:4300;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $proto;
+  }
+
+  # ---- Remotos (Module Federation) ----
+
+  # Ponto de entrada de cada remoto: sempre revalidar, senão o shell carrega versão velha após deploy.
+  location ~ ^/remotes/[^/]+/remoteEntry\.js$ {
+    add_header Cache-Control "no-cache" always;
+    try_files $uri =404;
+  }
+
+  # Worker do MapLibre (.mjs): nem toda versão do mime.types conhece a extensão, e worker de módulo
+  # exige MIME de JavaScript.
+  location ~ \.mjs$ {
+    default_type application/javascript;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+  }
+
+  # Manifest do PWA: o mime.types do Nginx não conhece a extensão; sem o tipo certo o app não instala.
+  location = /manifest.webmanifest {
+    default_type application/manifest+json;
+    add_header Cache-Control "no-cache" always;
+    try_files $uri =404;
+  }
+
+  # Arquivos com hash no nome (Vite e Angular): cache longo.
+  location ~ ^/remotes/[^/]+/assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+  }
+
+  location ~ "-[A-Z0-9]{8}\.(js|css)$" {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+  }
+
+  location /remotes/ {
+    try_files $uri $uri/ =404;
+  }
+
+  # ---- Shell (SPA) ----
+
+  location / {
+    add_header Cache-Control "no-cache" always;
+    try_files $uri $uri/ /index.html;
+    # Marcadores do index.html (canonical, Open Graph, JSON-LD, verificação do Search Console).
+    sub_filter_once off;
+    sub_filter '__SITE_URL__' $site_url;
+    sub_filter '__GOOGLE_SITE_VERIFICATION__' '${GOOGLE_SITE_VERIFICATION}';
+  }
+}

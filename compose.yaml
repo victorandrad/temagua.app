@@ -1,0 +1,92 @@
+# Tem Água? em containers.
+#
+#   docker compose up -d --build                     → http://localhost:8080 (métricas em /metricas)
+#   docker compose --profile ngrok up -d --build     → + link público via ngrok (NGROK_AUTHTOKEN em tem-agua/.env.local)
+#   docker compose --profile cloudflared up -d       → + link público via cloudflared (sem conta)
+#   docker compose down                              → para tudo (os relatos ficam no volume "banco")
+#
+# O "npm run dev" também usa o serviço "db" daqui (sobe só ele, na porta 5442 do localhost).
+
+name: tem-agua
+
+services:
+  # PostgreSQL + PostGIS: relatos por dia, hora e coordenadas, base dos relatórios de métricas.
+  db:
+    image: postgis/postgis:18-3.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: temagua
+      POSTGRES_USER: temagua
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-temagua}
+    volumes:
+      - banco:/var/lib/postgresql
+    ports:
+      # Só no localhost: para a API rodando fora do Docker (npm run dev) e para ferramentas de BD.
+      - "127.0.0.1:${DB_PORT:-5442}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temagua -d temagua"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./tem-agua
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://temagua:${POSTGRES_PASSWORD:-temagua}@db:5432/temagua
+      # Indexação no Google: domínio público (ex.: https://temagua.app). Vazio = usa a origem da requisição.
+      SITE_URL: ${SITE_URL:-}
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./tem-agua
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    environment:
+      SITE_URL: ${SITE_URL:-}
+      # Código do Google Search Console (verificação por meta tag). Vazio = sem verificação.
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      # Só essas duas variáveis são trocadas no template do Nginx.
+      NGINX_ENVSUBST_FILTER: "^(SITE_URL|GOOGLE_SITE_VERIFICATION)$"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ---- Túneis opcionais (link HTTPS público, necessário para o GPS no celular) ----
+
+  ngrok:
+    image: ngrok/ngrok:3
+    profiles: [ngrok]
+    restart: unless-stopped
+    # Mesmo arquivo do "npm run dev:ngrok": NGROK_AUTHTOKEN=... (obrigatório) e NGROK_DOMAIN=... (opcional).
+    env_file:
+      - path: ./tem-agua/.env.local
+        required: false
+    # NGROK_DOMAIN (opcional) dá um link fixo; $$ = variável expandida dentro do container.
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['exec ngrok http web:80 --log stdout $${NGROK_DOMAIN:+--url=$$NGROK_DOMAIN}']
+    ports:
+      - "4040:4040" # painel do ngrok com o link: http://localhost:4040
+    depends_on:
+      web:
+        condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    profiles: [cloudflared]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://web:80
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  banco:
