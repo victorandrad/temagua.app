@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.angular
+**/*.log
+.env*
+.tunnel-url
+.tunnel-pid
+apps/api/data
+**/.vscode
+docker/*.md
