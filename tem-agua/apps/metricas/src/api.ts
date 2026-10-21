@@ -30,6 +30,8 @@ export interface Metricas {
   serie: { granularidade: 'hora' | 'dia'; pontos: Array<{ t: string; semAgua: number; voltou: number }> };
   semanaHora: Array<{ dow: number; hora: number; semAgua: number }>;
   bairros: Array<Contagens & { bairro: string; ultimo: string }>;
+  /** Por setor de abastecimento (reservatório); só relatos dentro das áreas do mapa. */
+  setores: Array<Contagens & { id: string; nome: string; areasComFalta: number; areas: number }>;
   pontos: FeatureCollection<Point, Contagens>;
   recentes: Array<{
     id: string;

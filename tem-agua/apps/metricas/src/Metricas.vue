@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { on } from '@tem-agua/contracts';
+import { ABASTECIMENTO, on } from '@tem-agua/contracts';
 import { csvUrl, fetchBairros, fetchMetricas, type Filtros, type Metricas } from './api';
-import { opcaoBairros, opcaoHeatmap, opcaoSerie, rotuloSerie } from './charts';
+import { opcaoBairros, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
 import { dataBr, dataHoraBr, DIAS_SEMANA, hojeEmSalto, horaBr, nf, somaDias, variacao } from './format';
 import EChart from './components/EChart.vue';
 import MapaPontos from './components/MapaPontos.vue';
@@ -38,7 +38,10 @@ const monitorTelaCheia = ref(false);
 function marcarUrl(ativo: boolean) {
   const url = new URL(location.href);
   if (ativo) url.searchParams.set('modo', 'monitor');
-  else url.searchParams.delete('modo');
+  else {
+    url.searchParams.delete('modo');
+    url.searchParams.delete('setores'); // filtro de setores do monitoramento
+  }
   history.replaceState(history.state, '', url);
 }
 
@@ -125,6 +128,10 @@ const vazio = computed(() => r.value?.total === 0);
 const opSerie = computed(() => (m.value ? opcaoSerie(m.value) : {}));
 const opHeatmap = computed(() => (m.value ? opcaoHeatmap(m.value) : {}));
 const opBairros = computed(() => (m.value ? opcaoBairros(m.value) : {}));
+const corDoSetor = (id: string) => ABASTECIMENTO.setores.find((s) => s.id === id)?.cor;
+const opSetores = computed(() => (m.value ? opcaoSetores(m.value) : {}));
+const setoresComFalta = computed(() => m.value?.setores.filter((s) => s.semAgua > 0) ?? []);
+const alturaSetores = computed(() => Math.max(120, Math.min(10, setoresComFalta.value.length) * 34 + 16));
 const alturaBairros = computed(() => Math.max(120, Math.min(10, m.value?.bairros.filter((b) => b.semAgua).length ?? 0) * 34 + 16));
 
 const heatmapTabela = computed(() => {
@@ -351,6 +358,38 @@ function fimPdf() {
               </tbody>
             </table>
           </div>
+        </article>
+
+        <!-- Por setor de abastecimento (reservatório) -->
+        <article class="ta-met__card ta-met__card--full">
+          <header class="ta-met__card-head">
+            <div>
+              <h2 class="ta-met__card-title">Por reservatório</h2>
+              <p class="ta-met__card-sub">
+                Relatos de falta por setor de abastecimento. Falta em várias áreas do mesmo setor costuma apontar para o
+                reservatório, não para a rua.
+              </p>
+            </div>
+          </header>
+          <p v-if="!setoresComFalta.length" class="ta-met__vazio">Nenhum relato de falta dentro das áreas do mapa de reservatórios no período.</p>
+          <div v-else class="ta-met__duas">
+            <EChart :option="opSetores" :height="alturaSetores" label="Barras horizontais com os setores de abastecimento com mais relatos de falta d'água" />
+            <div class="ta-met__tabela-wrap ta-met__tabela-wrap--alta">
+              <table class="ta-met__tabela">
+                <thead><tr><th>Setor</th><th>Sem água</th><th>Voltou</th><th>Áreas com falta</th></tr></thead>
+                <tbody>
+                  <tr v-for="s in m.setores" :key="s.id">
+                    <td><i class="ta-met__cor" :style="{ background: corDoSetor(s.id) }" aria-hidden="true"></i>{{ s.nome }}</td><td>{{ nf.format(s.semAgua) }}</td><td>{{ nf.format(s.voltou) }}</td>
+                    <td>{{ s.areasComFalta }} de {{ s.areas }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p class="ta-met__fonte">
+            Setores: mapa <a :href="ABASTECIMENTO.fonte.url" target="_blank" rel="noopener">{{ ABASTECIMENTO.fonte.titulo }}</a>.
+            Relatos em chácaras e áreas rurais fora desse mapa não entram aqui.
+          </p>
         </article>
 
         <!-- Últimos relatos -->

@@ -7,10 +7,12 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { AttributionControl, Map as MlMap, Marker, setWorkerUrl, type ExpressionSpecification, type GeoJSONSource } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection, Point } from 'geojson';
-import { on, SALTO_BOUNDS, SALTO_CENTER } from '@tem-agua/contracts';
+import { ABASTECIMENTO, on, SALTO_BOUNDS, SALTO_CENTER, SETORES_RESUMO } from '@tem-agua/contracts';
 import { fetchMonitor, type RelatoMonitor } from '../api';
 import { RAMPA, RAMPA_VOLTOU } from '../charts';
 import { nf } from '../format';
+import { adicionarSetores, enquadrarSetores, mostrarSetores, setorDoRelato } from '../setores';
+import FiltroSetores from './FiltroSetores.vue';
 
 setWorkerUrl(new URL(workerUrl, import.meta.url).href);
 
@@ -33,9 +35,79 @@ let carregado = false;
 const vistos = new Set<string>();
 let primeiraCarga = true;
 
-const semAgua = computed(() => relatos.value.filter((r) => r.status === 'sem-agua'));
+// ---- Setores de abastecimento ----
+// Ligados, mostram o contorno de cada setor por baixo do calor. Escolhendo alguns setores, o calor e
+// os números passam a contar só os relatos desses setores (uma TV pode acompanhar só uma região).
+// A escolha vai para a URL (?setores=todos ou ?setores=panorama,santa-cruz) para abrir a TV já certa.
+const CHAVE_SETORES = 'tem-agua:monitor-setores';
+function setoresIniciais(): { ligado: boolean; setores: string[] | null } {
+  const daUrl = new URLSearchParams(location.search).get('setores');
+  if (daUrl !== null) {
+    const ids = daUrl.split(',').filter((id) => SETORES_RESUMO.some((s) => s.id === id));
+    return { ligado: true, setores: daUrl === 'todos' || !ids.length ? null : ids };
+  }
+  try {
+    const v = JSON.parse(localStorage.getItem(CHAVE_SETORES) ?? 'null');
+    if (v && typeof v.ligado === 'boolean') return { ligado: v.ligado, setores: Array.isArray(v.setores) ? v.setores : null };
+  } catch {
+    // sem nada guardado
+  }
+  return { ligado: false, setores: null };
+}
+const inicial = setoresIniciais();
+const setoresLigados = ref(inicial.ligado);
+const setoresSel = ref<string[] | null>(inicial.setores);
+const filtroAberto = ref(false);
+const filtrando = computed(() => setoresLigados.value && setoresSel.value !== null);
+const rotuloSetores = computed(() => {
+  const sel = setoresSel.value;
+  if (sel === null) return 'Todos os setores';
+  if (!sel.length) return 'Nenhum setor';
+  return sel.length === 1 ? (SETORES_RESUMO.find((s) => s.id === sel[0])?.nome ?? '1 setor') : `${sel.length} setores`;
+});
+
+function aplicarSetores(enquadrar: boolean) {
+  if (map && carregado) {
+    mostrarSetores(map, setoresLigados.value, setoresSel.value);
+    if (enquadrar && filtrando.value && setoresSel.value!.length) enquadrarSetores(map, setoresSel.value!);
+  }
+  try {
+    localStorage.setItem(CHAVE_SETORES, JSON.stringify({ ligado: setoresLigados.value, setores: setoresSel.value }));
+  } catch {
+    // só não lembra a escolha
+  }
+  const url = new URL(location.href);
+  if (setoresLigados.value) url.searchParams.set('setores', setoresSel.value === null ? 'todos' : setoresSel.value.join(','));
+  else url.searchParams.delete('setores');
+  history.replaceState(history.state, '', url);
+  desenhar();
+}
+function alternarSetores() {
+  setoresLigados.value = !setoresLigados.value;
+  if (!setoresLigados.value) filtroAberto.value = false;
+  aplicarSetores(true);
+}
+function escolherSetores(setores: string[] | null) {
+  setoresSel.value = setores;
+  aplicarSetores(true);
+}
+
+/** Relatos considerados: todos, ou só os dos setores escolhidos. */
+const visiveis = computed(() => {
+  if (!filtrando.value) return relatos.value;
+  const sel = new Set(setoresSel.value);
+  return relatos.value.filter((r) => sel.has(setorDoRelato(r) ?? ''));
+});
+const legendaSetores = computed(() => {
+  if (!filtrando.value) return '';
+  const sel = setoresSel.value!;
+  if (!sel.length) return 'nenhum setor escolhido';
+  return sel.length === 1 ? `no setor ${SETORES_RESUMO.find((s) => s.id === sel[0])?.nome}` : `em ${sel.length} setores`;
+});
+
+const semAgua = computed(() => visiveis.value.filter((r) => r.status === 'sem-agua'));
 const bairrosComFalta = computed(() => new Set(semAgua.value.map((r) => r.bairro)).size);
-const voltouLista = computed(() => relatos.value.filter((r) => r.status === 'voltou'));
+const voltouLista = computed(() => visiveis.value.filter((r) => r.status === 'voltou'));
 const voltou = computed(() => voltouLista.value.length);
 const relogio = computed(() =>
   new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(agora.value),
@@ -84,7 +156,8 @@ async function carregar() {
     // Só pisca o que chegou de fato agora: nunca na primeira carga nem ao trocar a janela/filtro, e só
     // relatos criados depois da carga anterior (ampliar a janela traz relatos antigos "inéditos").
     const desde = (atualizadoEm.value ?? Date.now()) - 15_000;
-    if (!primeiraCarga) for (const r of lista) if (!vistos.has(r.id) && r.createdAt >= desde) pulsar(r);
+    const noFiltro = (r: RelatoMonitor) => !filtrando.value || setoresSel.value!.includes(setorDoRelato(r) ?? '');
+    if (!primeiraCarga) for (const r of lista) if (!vistos.has(r.id) && r.createdAt >= desde && noFiltro(r)) pulsar(r);
     for (const r of lista) vistos.add(r.id);
     primeiraCarga = false;
     relatos.value = lista;
@@ -120,6 +193,11 @@ function onFullscreenChange() {
 
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
+  // Com a lista de setores aberta, o Esc fecha só a lista.
+  if (filtroAberto.value) {
+    filtroAberto.value = false;
+    return;
+  }
   // Em tela cheia, sair dela já fecha o monitoramento (onFullscreenChange); fora dela, fecha direto.
   if (document.fullscreenElement) document.exitFullscreen().catch(() => emit('fechar'));
   else emit('fechar');
@@ -270,7 +348,12 @@ onMounted(async () => {
         'heatmap-opacity': 0.85,
       },
     });
+    // Setores por baixo do calor (contorno/preenchimento); os nomes vão por cima.
+    adicionarSetores(map!, 'voltou-calor');
     carregado = true;
+    // Aberto pela URL com setores escolhidos: a TV já começa enquadrada neles.
+    mostrarSetores(map!, setoresLigados.value, setoresSel.value);
+    if (filtrando.value && setoresSel.value!.length) enquadrarSetores(map!, setoresSel.value!, 0);
     desenhar();
     iniciarPulsacao();
   });
@@ -348,6 +431,19 @@ onBeforeUnmount(() => {
             {{ h }} h
           </button>
         </div>
+        <button type="button" class="ta-mon__btn ta-mon__btn--setores" :aria-pressed="setoresLigados" @click="alternarSetores">
+          Setores
+        </button>
+        <button
+          v-if="setoresLigados"
+          type="button"
+          class="ta-mon__btn ta-filtro-chip"
+          aria-haspopup="dialog"
+          :aria-expanded="filtroAberto"
+          @click="filtroAberto = !filtroAberto"
+        >
+          {{ rotuloSetores }} ▾
+        </button>
         <button type="button" class="ta-mon__btn" @click="alternarTelaCheia">
           {{ emTelaCheia ? 'Sair da tela cheia' : 'Tela cheia' }}
         </button>
@@ -355,11 +451,18 @@ onBeforeUnmount(() => {
           ✕
         </button>
       </div>
+      <FiltroSetores
+        v-if="setoresLigados && filtroAberto"
+        class="ta-mon__filtro"
+        :selecionados="setoresSel"
+        @mudar="escolherSetores"
+        @fechar="filtroAberto = false"
+      />
 
       <div class="ta-mon__hud ta-mon__hud--numeros" aria-live="polite">
         <p class="ta-mon__num">
           <b>{{ nf.format(semAgua.length) }}</b>
-          <span>relatos de falta {{ janela === 1 ? 'na última hora' : `nas últimas ${janela} h` }}</span>
+          <span>relatos de falta {{ janela === 1 ? 'na última hora' : `nas últimas ${janela} h` }}{{ legendaSetores ? ` ${legendaSetores}` : '' }}</span>
         </p>
         <p class="ta-mon__num">
           <b>{{ nf.format(bairrosComFalta) }}</b>
@@ -382,6 +485,12 @@ onBeforeUnmount(() => {
           <span class="ta-mon__chave-item"><span class="ta-mon__chave is-sem-agua"></span>novo relato de falta</span>
           <span class="ta-mon__chave-item"><span class="ta-mon__chave is-voltou"></span>água voltou</span>
         </p>
+        <template v-if="setoresLigados">
+          <p class="ta-mon__legenda-nota"><span class="ta-mon__chave-setor"></span>Setor de abastecimento (uma cor por setor)</p>
+          <p class="ta-mon__legenda-nota">
+            Fonte: mapa <a :href="ABASTECIMENTO.fonte.url" target="_blank" rel="noopener">{{ ABASTECIMENTO.fonte.titulo }}</a>
+          </p>
+        </template>
         <p v-if="demo" class="ta-mon__legenda-nota">Inclui dados de demonstração.</p>
       </div>
 

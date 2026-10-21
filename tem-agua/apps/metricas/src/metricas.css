@@ -1117,3 +1117,217 @@
     print-color-adjust: exact;
   }
 }
+
+/* Gráfico + tabela lado a lado (setores de abastecimento) */
+.ta-met__duas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .ta-met__duas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ta-met__fonte {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--ta-texto-2);
+}
+
+.ta-met__fonte a {
+  color: inherit;
+}
+
+.ta-met__cor {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 7px;
+  border-radius: 3px;
+}
+
+/* ---- Setores de abastecimento no monitoramento ---- */
+
+.ta-mon__btn--setores[aria-pressed='true'] {
+  background: #276ef1;
+  color: #fff;
+}
+
+.ta-filtro-chip[aria-expanded='true'] {
+  background: #000;
+  color: #fff;
+}
+
+.ta-mon__filtro {
+  position: absolute;
+  z-index: 3;
+  top: 78px;
+  right: 20px;
+  width: min(360px, calc(100vw - 40px));
+  max-height: calc(100vh - 200px);
+}
+
+.ta-mon__chave-setor {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  margin-right: 6px;
+  border: 2px solid #276ef1;
+  border-radius: 3px;
+  background: rgba(39, 110, 241, 0.12);
+  vertical-align: -1px;
+}
+
+.ta-mon__legenda-nota a {
+  color: inherit;
+}
+
+/* Lista de setores (monitoramento) */
+.ta-filtro {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  color: #000;
+  font-size: 14px;
+}
+
+.ta-filtro__cabeca {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 14px 8px 16px;
+}
+
+.ta-filtro__titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ta-filtro__sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #5e5e5e;
+}
+
+.ta-filtro__fechar {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f1f1;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ta-filtro__acoes {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.ta-filtro__acoes button {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ta-filtro__acoes button.is-on {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+.ta-filtro__lista {
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.ta-filtro__lista li {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+
+.ta-filtro__lista li:hover {
+  background: #f7f7f7;
+}
+
+.ta-filtro__lista label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 4px 9px 16px;
+  cursor: pointer;
+}
+
+.ta-filtro__lista input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #000;
+}
+
+.ta-filtro__cor {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.ta-filtro__lista li.is-off .ta-filtro__cor {
+  opacity: 0.35;
+}
+
+.ta-filtro__nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ta-filtro__lista small {
+  font-size: 12px;
+  color: #757575;
+  white-space: nowrap;
+}
+
+.ta-filtro__so {
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #1f4fb0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ta-filtro__so:hover {
+  background: #eef3fe;
+}

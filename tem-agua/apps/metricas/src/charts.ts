@@ -9,7 +9,7 @@ import * as echarts from 'echarts/core';
 import { BarChart, HeatmapChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
-import type { Metricas } from './api';
+import type { Contagens, Metricas } from './api';
 import { compacto, dataBr, DIAS_SEMANA, esc, nf } from './format';
 
 echarts.use([BarChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
@@ -183,7 +183,17 @@ export function opcaoHeatmap(m: Metricas): Option {
 }
 
 export function opcaoBairros(m: Metricas): Option {
-  const top = m.bairros.filter((b) => b.semAgua > 0).slice(0, 10);
+  return opcaoBarrasFalta(m.bairros.filter((b) => b.semAgua > 0).slice(0, 10).map((b) => ({ ...b, nome: b.bairro })));
+}
+
+/** Setores de abastecimento com mais relatos de falta (top 10), com quantas áreas foram afetadas. */
+export function opcaoSetores(m: Metricas): Option {
+  const top = m.setores.filter((s) => s.semAgua > 0).slice(0, 10);
+  return opcaoBarrasFalta(top, (i) => `<div style="color:${COR.textoSec};font-size:12px">falta em ${top[i].areasComFalta} de ${top[i].areas} áreas</div>`);
+}
+
+/** Barras horizontais de falta (bairros ou setores). `extra` acrescenta uma linha ao tooltip. */
+function opcaoBarrasFalta(top: Array<Contagens & { nome: string }>, extra?: (i: number) => string): Option {
   return {
     textStyle: { fontFamily: FONTE },
     grid: { left: 8, right: 40, top: 4, bottom: 4, containLabel: true },
@@ -192,15 +202,15 @@ export function opcaoBairros(m: Metricas): Option {
       trigger: 'item',
       formatter: (p: { dataIndex: number }) => {
         const b = top[p.dataIndex];
-        return `<div style="color:${COR.textoSec};font-size:12px">${esc(b.bairro)}</div>` +
-          linha(COR.semAgua, b.semAgua, 'sem água') + linha(COR.voltou, b.voltou, 'água voltou');
+        return `<div style="color:${COR.textoSec};font-size:12px">${esc(b.nome)}</div>` +
+          linha(COR.semAgua, b.semAgua, 'sem água') + linha(COR.voltou, b.voltou, 'água voltou') + (extra?.(p.dataIndex) ?? '');
       },
     },
     xAxis: { type: 'value', ...eixoValor, splitLine: { show: false }, axisLabel: { show: false } },
     yAxis: {
       type: 'category',
       inverse: true,
-      data: top.map((b) => b.bairro),
+      data: top.map((b) => b.nome),
       ...eixoCategoria,
       axisLabel: { ...eixoCategoria.axisLabel, color: COR.texto, fontSize: 12, width: 170, overflow: 'truncate' },
     },
