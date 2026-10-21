@@ -4,6 +4,14 @@ import { AttributionControl, Map as MlMap, setWorkerUrl, type GeoJSONSource } fr
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection, Point } from 'geojson';
 import {
+  adicionarCamadaAbastecimento,
+  destacarSetor,
+  enquadrarSetores,
+  filtrarSetores,
+  mostrarAbastecimento,
+} from './abastecimento';
+import {
+  abastecimentoProximo,
   emit,
   frescor,
   last,
@@ -101,8 +109,10 @@ export function MapaApp() {
     const publishCenter = () => {
       const c = map.getCenter();
       const b = nearestBairro(c.lng, c.lat);
+      const abast = abastecimentoProximo(c.lng, c.lat);
       setBairro(b.nome);
-      emit('center', { lng: c.lng, lat: c.lat, bairro: b.nome });
+      destacarSetor(map, abast?.setor.id ?? null);
+      emit('center', { lng: c.lng, lat: c.lat, bairro: b.nome, setor: abast?.setor.id ?? null, area: abast?.area.nome ?? null, distanciaArea: abast ? Math.round(abast.distancia) : null });
     };
 
     map.on('movestart', () => setMoving(true));
@@ -156,6 +166,25 @@ export function MapaApp() {
           'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 14, 1],
         },
       });
+
+      // Camada opcional de reservatórios, por baixo dos relatos (ligada pelo selo do shell ou pelo painel).
+      adicionarCamadaAbastecimento(map, 'reports-heat');
+      let replay = true;
+      offs.push(
+        on('camadas', (c) => {
+          mostrarAbastecimento(map, c.abastecimento);
+          filtrarSetores(map, c.setores ?? null);
+          // Só enquadra quando a pessoa muda a seleção, não no valor repetido ao montar o mapa.
+          if (!replay && c.enquadrar && c.abastecimento && c.setores?.length) enquadrarSetores(map, c.setores);
+        }),
+      );
+      replay = false;
+      map.on('click', 'abast-estrutura', (e) => {
+        const p = e.features?.[0]?.properties;
+        if (p) showToast(`${p.nome} · ${p.tipoNome} do setor ${p.setorNome}`);
+      });
+      map.on('mouseenter', 'abast-estrutura', () => (map.getCanvas().style.cursor = 'pointer'));
+      map.on('mouseleave', 'abast-estrutura', () => (map.getCanvas().style.cursor = ''));
 
       // Ponto azul da localização do GPS, com o círculo de precisão.
       map.addSource('me', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });

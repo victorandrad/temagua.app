@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
+  ABASTECIMENTO,
+  abastecimentoDoPonto,
   BAIRROS,
+  centroDoSetor,
   distanceKm,
   emit,
+  last,
   on,
   RECONFIRMAR_MS,
   relatoAtivo,
+  setorPorId,
   ultimaConfirmacao,
-  type Bairro,
+  type LocalAbastecimento,
   type MapCenter,
   type Report,
   type WaterStatus,
@@ -62,6 +67,41 @@ const subline = computed(() => {
   return `${bairro} · ${relatos} · último ${formatAgo(latest)}`;
 });
 
+// ---- Setor de abastecimento (reservatório) do pin ----
+
+// Setor de cada relato, calculado uma vez por posição (renovar um relato pode mudar a posição).
+const cacheSetor = new Map<string, LocalAbastecimento | null>();
+function abastecimentoDe(r: Report): LocalAbastecimento | null {
+  const chave = `${r.id}:${r.lng}:${r.lat}`;
+  if (!cacheSetor.has(chave)) cacheSetor.set(chave, abastecimentoDoPonto(r.lng, r.lat));
+  return cacheSetor.get(chave)!;
+}
+
+const setorAtual = computed(() => (center.value?.setor ? setorPorId(center.value.setor) : undefined));
+const faltaNoSetor = computed(() => {
+  const s = setorAtual.value;
+  if (!s) return { relatos: 0, areas: 0 };
+  const doSetor = recent.value.filter((r) => r.status === 'sem-agua' && abastecimentoDe(r)?.setor.id === s.id);
+  return { relatos: doSetor.length, areas: new Set(doSetor.map((r) => abastecimentoDe(r)!.area.nome)).size };
+});
+// Falta em 2+ áreas e em ao menos 30% delas: sinal de problema no reservatório, não na rua.
+const indicaReservatorio = computed(
+  () => !!setorAtual.value && faltaNoSetor.value.areas >= 2 && faltaNoSetor.value.areas / setorAtual.value.areas.length >= 0.3,
+);
+const reservatoriosDoSetor = computed(() => setorAtual.value?.estruturas.filter((e) => e.tipo !== 'booster').length ?? 0);
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+
+/** Liga a camada e garante que o setor está entre os visíveis (se a pessoa filtrou alguns). */
+function mostrarSetor(id: string) {
+  const setores = last('camadas')?.setores;
+  emit('camadas', { abastecimento: true, setores: setores ? [...new Set([...setores, id])] : null });
+}
+
+function verReservatorios() {
+  if (setorAtual.value) mostrarSetor(setorAtual.value.id);
+  if (!desktop.value) expanded.value = false;
+}
+
 // ---- Ranking de bairros: filtro de período + visual diferente no desktop e no celular ----
 
 const HORA = 60 * 60 * 1000;
@@ -85,6 +125,28 @@ function periodoSalvo(): PeriodoId {
 }
 
 const periodo = ref<PeriodoId>(periodoSalvo());
+
+// Agrupar por bairro ou por setor de abastecimento: falta em vários bairros do mesmo setor
+// costuma ser problema no reservatório, não na rua.
+type Agrupamento = 'bairro' | 'setor';
+const AGRUPAR_KEY = 'tem-agua:ranking-agrupar';
+function agrupamentoSalvo(): Agrupamento {
+  try {
+    return localStorage.getItem(AGRUPAR_KEY) === 'setor' ? 'setor' : 'bairro';
+  } catch {
+    return 'bairro';
+  }
+}
+const agrupar = ref<Agrupamento>(agrupamentoSalvo());
+function escolherAgrupamento(a: Agrupamento) {
+  agrupar.value = a;
+  verTodos.value = false;
+  try {
+    localStorage.setItem(AGRUPAR_KEY, a);
+  } catch {
+    // só não lembra a escolha
+  }
+}
 const periodoAtual = computed(() => PERIODOS.find((p) => p.id === periodo.value)!);
 function escolherPeriodo(id: PeriodoId) {
   periodo.value = id;
@@ -110,15 +172,23 @@ interface LinhaRanking {
   ultimo: number;
   ultimoFalta: number;
   ultimaVolta: number;
-  bairro?: Bairro;
+  /** Para onde o mapa vai ao tocar na linha. */
+  destino?: { lng: number; lat: number; zoom: number };
+  /** Linha de setor (id): liga a camada de reservatórios com esse setor visível ao tocar. */
+  setorId?: string;
+  /** Cor do setor no mapa (só nas linhas de setor). */
+  cor?: string;
 }
 
 const porBairro = computed<LinhaRanking[]>(() => {
   const desde = now.value - periodoAtual.value.ms;
   const mapa = new Map<string, LinhaRanking>();
+  const porSetor = agrupar.value === 'setor';
   for (const r of reports.value) {
     if (r.createdAt < desde) continue;
-    const l = mapa.get(r.bairro) ?? { nome: r.bairro, semAgua: 0, voltou: 0, total: 0, ultimo: 0, ultimoFalta: 0, ultimaVolta: 0 };
+    const chave = porSetor ? abastecimentoDe(r)?.setor.id : r.bairro;
+    if (!chave) continue; // fora das áreas do mapa de reservatórios
+    const l = mapa.get(chave) ?? { nome: chave, semAgua: 0, voltou: 0, total: 0, ultimo: 0, ultimoFalta: 0, ultimaVolta: 0 };
     if (r.status === 'sem-agua') {
       l.semAgua++;
       l.ultimoFalta = Math.max(l.ultimoFalta, r.createdAt);
@@ -128,9 +198,16 @@ const porBairro = computed<LinhaRanking[]>(() => {
     }
     l.total++;
     l.ultimo = Math.max(l.ultimo, r.createdAt);
-    mapa.set(r.bairro, l);
+    mapa.set(chave, l);
   }
-  return [...mapa.values()].map((l) => ({ ...l, bairro: BAIRROS.find((b) => b.nome === l.nome) }));
+  return [...mapa.values()].map((l) => {
+    if (porSetor) {
+      const s = setorPorId(l.nome)!;
+      return { ...l, nome: s.nome, destino: { ...centroDoSetor(s), zoom: 14 }, setorId: s.id, cor: s.cor };
+    }
+    const b = BAIRROS.find((x) => x.nome === l.nome);
+    return { ...l, destino: b && { lng: b.lng, lat: b.lat, zoom: 15 } };
+  });
 });
 
 /** Ranking de FALTA: só bairros com ao menos um relato de falta no período. */
@@ -176,8 +253,9 @@ function report(s: WaterStatus, reconfirmar?: Report) {
   sentTimer = setTimeout(() => (sent.value = null), 3500);
 }
 
-function goTo(b?: Bairro) {
-  if (b) emit('fly-to', { lng: b.lng, lat: b.lat, zoom: 15 });
+function goTo(item: LinhaRanking) {
+  if (item.destino) emit('fly-to', item.destino);
+  if (item.setorId) mostrarSetor(item.setorId);
   // No celular o painel cobre o mapa: recolhe para mostrar o bairro. No desktop fica aberto.
   if (!desktop.value) expanded.value = false;
 }
@@ -348,8 +426,34 @@ onBeforeUnmount(() => {
 
     <Transition :css="false" @enter="abrir" @leave="fechar">
     <div v-show="expanded || desktop" class="ta-sheet__more">
+      <div v-if="center" class="ta-setor">
+        <span class="ta-setor__icone" :style="{ background: setorAtual?.cor }" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="18" height="18">
+            <path d="M3 4.5C3 3.1 5.2 2 8 2s5 1.1 5 2.5v7C13 12.9 10.8 14 8 14s-5-1.1-5-2.5v-7Zm1.5 0C4.5 5 5.9 6 8 6s3.5-1 3.5-1.5S10.1 3.5 8 3.5 4.5 4 4.5 4.5Z" fill="currentColor" />
+          </svg>
+        </span>
+        <div class="ta-setor__texto">
+          <template v-if="setorAtual">
+            <p class="ta-setor__titulo">Abastecimento: {{ center.distanciaArea ? 'provavelmente ' : '' }}setor {{ setorAtual.nome }}</p>
+            <p class="ta-setor__sub">
+              <template v-if="center.distanciaArea">A {{ center.distanciaArea }} m da área {{ center.area }}</template><template v-else>Área {{ center.area }}</template> · {{ plural(setorAtual.areas.length, 'área', 'áreas') }} no setor<template v-if="reservatoriosDoSetor">
+                · {{ plural(reservatoriosDoSetor, 'reservatório', 'reservatórios') }}</template>
+            </p>
+            <p v-if="faltaNoSetor.relatos" class="ta-setor__alerta">
+              {{ plural(faltaNoSetor.relatos, 'relato', 'relatos') }} de falta no setor agora, em {{ faltaNoSetor.areas }} de
+              {{ plural(setorAtual.areas.length, 'área', 'áreas') }}<template v-if="indicaReservatorio">: pode ser no reservatório, não só na sua rua</template>.
+            </p>
+            <button type="button" class="ta-setor__ver" @click="verReservatorios">Ver o setor no mapa</button>
+          </template>
+          <template v-else>
+            <p class="ta-setor__titulo">Setor de abastecimento não identificado</p>
+            <p class="ta-setor__sub">Este ponto fica fora das áreas do mapa de reservatórios (comum em chácaras e áreas rurais).</p>
+          </template>
+        </div>
+      </div>
+
       <div class="ta-rank-head">
-        <h3 class="ta-sheet__section">Bairros com mais relatos</h3>
+        <h3 class="ta-sheet__section">{{ agrupar === 'setor' ? 'Reservatórios com mais relatos' : 'Bairros com mais relatos' }}</h3>
         <div class="ta-seg" role="radiogroup" aria-label="Período do ranking">
           <button
             v-for="p in PERIODOS"
@@ -363,6 +467,27 @@ onBeforeUnmount(() => {
             {{ p.label }}
           </button>
         </div>
+      </div>
+
+      <div class="ta-seg ta-seg--agrupar" role="radiogroup" aria-label="Agrupar o ranking por">
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="agrupar === 'bairro'"
+          :class="{ 'is-on': agrupar === 'bairro' }"
+          @click="escolherAgrupamento('bairro')"
+        >
+          Bairros
+        </button>
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="agrupar === 'setor'"
+          :class="{ 'is-on': agrupar === 'setor' }"
+          @click="escolherAgrupamento('setor')"
+        >
+          Reservatórios
+        </button>
       </div>
 
       <p v-if="!ranking.length" class="ta-empty">Nenhum relato de falta {{ periodoAtual.texto }}.</p>
@@ -380,12 +505,12 @@ onBeforeUnmount(() => {
               type="button"
               class="ta-rankd__item"
               :aria-label="`${i + 1}º ${item.nome}: ${item.semAgua} sem água, ${item.voltou} água voltou, último relato ${formatAgo(item.ultimo)}. Ver no mapa`"
-              @click="goTo(item.bairro)"
+              @click="goTo(item)"
             >
               <span class="ta-rankd__pos">{{ i + 1 }}</span>
               <span class="ta-rankd__corpo">
                 <span class="ta-rankd__linha">
-                  <span class="ta-rankd__nome">{{ item.nome }}</span>
+                  <span class="ta-rankd__nome"><i v-if="item.cor" class="ta-cor" :style="{ background: item.cor }" aria-hidden="true"></i>{{ item.nome }}</span>
                   <span class="ta-rankd__nums">
                     <b>{{ item.semAgua }}</b><template v-if="item.voltou"> · <b class="is-voltou">{{ item.voltou }}</b></template>
                   </span>
@@ -410,11 +535,11 @@ onBeforeUnmount(() => {
             type="button"
             class="ta-rank__item"
             :aria-label="`${i + 1}º ${item.nome}: ${item.semAgua} relatos sem água. Ver no mapa`"
-            @click="goTo(item.bairro)"
+            @click="goTo(item)"
           >
             <span class="ta-rank__pos">{{ i + 1 }}</span>
             <span class="ta-rank__corpo">
-              <span class="ta-rank__name">{{ item.nome }}</span>
+              <span class="ta-rank__name"><i v-if="item.cor" class="ta-cor" :style="{ background: item.cor }" aria-hidden="true"></i>{{ item.nome }}</span>
               <span class="ta-rank__barra" aria-hidden="true"><span :style="{ width: pct(item.semAgua) }"></span></span>
             </span>
             <span class="ta-rank__count">{{ item.semAgua }}</span>
@@ -431,7 +556,7 @@ onBeforeUnmount(() => {
             type="button"
             class="ta-voltando__chip"
             :aria-label="`${v.nome}: água voltou ${formatAgo(v.ultimaVolta)}. Ver no mapa`"
-            @click="goTo(v.bairro)"
+            @click="goTo(v)"
           >
             {{ v.nome }} <span>{{ formatAgo(v.ultimaVolta) }}</span>
           </button>
@@ -450,6 +575,8 @@ onBeforeUnmount(() => {
       <p class="ta-privacy">
         Para os outros moradores, sua posição aparece arredondada para cerca de 10 m. Nunca mostramos endereços.
         Seu aviso fica 12 h no mapa; avisar de novo renova, e "a água voltou" encerra o anterior.
+        Setores de abastecimento: mapa
+        <a :href="ABASTECIMENTO.fonte.url" target="_blank" rel="noopener">{{ ABASTECIMENTO.fonte.titulo }}</a>.
       </p>
     </div>
     </Transition>

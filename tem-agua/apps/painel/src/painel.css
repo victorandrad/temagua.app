@@ -647,3 +647,85 @@
   height: 44px;
   font-size: 15px;
 }
+
+/* ---- Setor de abastecimento do pin ---- */
+
+.ta-setor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #eef3fe;
+}
+
+.ta-setor__icone {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #276ef1;
+  color: #fff;
+}
+
+.ta-setor__titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ta-setor__sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #4b4b4b;
+}
+
+.ta-setor__alerta {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: #a51400;
+}
+
+.ta-setor__ver {
+  margin-top: 10px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #1f4fb0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ta-setor__ver:hover {
+  background: #dfe8fd;
+}
+
+.ta-seg--agrupar {
+  margin-bottom: 10px;
+}
+
+.ta-privacy a {
+  color: inherit;
+}
+
+/* Cor do setor (a mesma do mapa) nas linhas do ranking por reservatório */
+.ta-cor {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 7px;
+  border-radius: 3px;
+  vertical-align: 0;
+}
