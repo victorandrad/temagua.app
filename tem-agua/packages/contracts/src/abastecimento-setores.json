@@ -1,0 +1,184 @@
+[
+  {
+    "id": "barnabe",
+    "nome": "Barnabé",
+    "cor": "#276EF1",
+    "areas": 1,
+    "reservatorios": 0
+  },
+  {
+    "id": "bela-vista",
+    "nome": "Bela Vista",
+    "cor": "#0096B7",
+    "areas": 20,
+    "reservatorios": 3
+  },
+  {
+    "id": "booster-estacao",
+    "nome": "Booster Estação",
+    "cor": "#0096B7",
+    "areas": 2,
+    "reservatorios": 0
+  },
+  {
+    "id": "buru-e-santa-izabel",
+    "nome": "Buru e Santa Izabel",
+    "cor": "#A0561A",
+    "areas": 2,
+    "reservatorios": 2
+  },
+  {
+    "id": "cristo-e-joao-jabour",
+    "nome": "Cristo e João Jabour",
+    "cor": "#276EF1",
+    "areas": 7,
+    "reservatorios": 2
+  },
+  {
+    "id": "haras-paineiras",
+    "nome": "Haras Paineiras",
+    "cor": "#C9A100",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "hospital",
+    "nome": "Hospital",
+    "cor": "#7B5CD6",
+    "areas": 6,
+    "reservatorios": 3
+  },
+  {
+    "id": "icarai",
+    "nome": "Icaraí",
+    "cor": "#E8833A",
+    "areas": 7,
+    "reservatorios": 1
+  },
+  {
+    "id": "imperial",
+    "nome": "Imperial",
+    "cor": "#3FA9F5",
+    "areas": 5,
+    "reservatorios": 1
+  },
+  {
+    "id": "jardim-america",
+    "nome": "Jardim América",
+    "cor": "#E8833A",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "jardim-cidade-siemens",
+    "nome": "Jardim Cidade (Siemens)",
+    "cor": "#7B5CD6",
+    "areas": 7,
+    "reservatorios": 1
+  },
+  {
+    "id": "jardim-das-nacoes",
+    "nome": "Jardim das Nações",
+    "cor": "#276EF1",
+    "areas": 6,
+    "reservatorios": 2
+  },
+  {
+    "id": "jurumirim",
+    "nome": "Jurumirim",
+    "cor": "#A0561A",
+    "areas": 6,
+    "reservatorios": 1
+  },
+  {
+    "id": "monte-serrat",
+    "nome": "Monte Serrat",
+    "cor": "#D6409F",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "moradas-sao-luis",
+    "nome": "Moradas São Luís",
+    "cor": "#C9A100",
+    "areas": 2,
+    "reservatorios": 1
+  },
+  {
+    "id": "moutonnee",
+    "nome": "Moutonnée",
+    "cor": "#7B5CD6",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "nova-era",
+    "nome": "Nova Era",
+    "cor": "#0096B7",
+    "areas": 8,
+    "reservatorios": 2
+  },
+  {
+    "id": "novo-sao-pedro",
+    "nome": "Novo São Pedro",
+    "cor": "#D6409F",
+    "areas": 4,
+    "reservatorios": 1
+  },
+  {
+    "id": "panorama",
+    "nome": "Panorama",
+    "cor": "#E8833A",
+    "areas": 5,
+    "reservatorios": 4
+  },
+  {
+    "id": "portal-dos-bandeirantes",
+    "nome": "Portal dos Bandeirantes",
+    "cor": "#A0561A",
+    "areas": 1,
+    "reservatorios": 2
+  },
+  {
+    "id": "pressurizado-nova-era",
+    "nome": "Pressurizado Nova Era",
+    "cor": "#276EF1",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "saae-centro",
+    "nome": "SAAE (Centro)",
+    "cor": "#E8833A",
+    "areas": 17,
+    "reservatorios": 1
+  },
+  {
+    "id": "santa-cruz",
+    "nome": "Santa Cruz",
+    "cor": "#C9A100",
+    "areas": 7,
+    "reservatorios": 1
+  },
+  {
+    "id": "santa-marta",
+    "nome": "Santa Marta",
+    "cor": "#D6409F",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "taquaral",
+    "nome": "Taquaral",
+    "cor": "#3FA9F5",
+    "areas": 1,
+    "reservatorios": 1
+  },
+  {
+    "id": "vila-martins",
+    "nome": "Vila Martins",
+    "cor": "#3FA9F5",
+    "areas": 1,
+    "reservatorios": 1
+  }
+]

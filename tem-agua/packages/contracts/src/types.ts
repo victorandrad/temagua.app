@@ -28,6 +28,21 @@ export interface MapCenter {
   lng: number;
   lat: number;
   bairro: string;
+  /** Setor de abastecimento (id em ABASTECIMENTO.setores) e área do pin; null fora das áreas do mapa de reservatórios. */
+  setor?: string | null;
+  area?: string | null;
+  /** Metros até a área (0 = dentro). Acima de 0: o pin caiu num vão entre áreas e vale a mais próxima. */
+  distanciaArea?: number | null;
+}
+
+/** Camadas opcionais do mapa. */
+export interface Camadas {
+  /** Setores de abastecimento (áreas por reservatório) e as estruturas. */
+  abastecimento: boolean;
+  /** Setores visíveis (ids); null ou ausente = todos. */
+  setores?: string[] | null;
+  /** Enquadrar o mapa nos setores escolhidos (só quando a pessoa muda a seleção, não no replay). */
+  enquadrar?: boolean;
 }
 
 export interface MapPadding {
@@ -57,6 +72,8 @@ export interface BusEvents {
   };
   /** Shell/painel → mapa: mover o mapa para um ponto. */
   'fly-to': FlyTo;
+  /** Shell/painel → mapa: camadas opcionais ligadas (o shell guarda a escolha). */
+  camadas: Camadas;
   /** Shell → mapa: centralizar na localização do GPS (assine com { replay: false }). */
   locate: null;
   /** Mapa → shell: estilo e primeiros tiles carregados (o shell fecha a splash screen). */

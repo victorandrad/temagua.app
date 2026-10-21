@@ -14,6 +14,7 @@
     "docker:down": "docker compose --profile ngrok --profile cloudflared down",
     "db:seed": "npm run db:seed --prefix tem-agua",
     "db:limpar-demo": "npm run db:limpar-demo --prefix tem-agua",
+    "abastecimento:importar": "npm run abastecimento:importar --prefix tem-agua",
     "db:psql": "docker compose exec db psql -U temagua -d temagua"
   }
 }
