@@ -1,25 +1,32 @@
-// API de relatos em tempo real (Node + ws).
+// API do Tem Água? (Node + PostgreSQL/PostGIS + ws).
 //
-//   GET  /api/reports  → relatos das últimas 24 h
-//   POST /api/reports  → novo relato { id, lng, lat, bairro, status }
-//   WS   /api/ws       → mensagem { type: 'report', report } a cada relato novo
+//   GET  /api/reports              → relatos reais das últimas N horas (horas=1..168, padrão 24)
+//   POST /api/reports              → novo relato { id, lng, lat, bairro, status }
+//   WS   /api/ws                   → { type: 'report', report } a cada relato novo
+//   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro, demo)
+//   GET  /api/metricas/bairros     → bairros com relatos (para o filtro)
+//   GET  /bairros, /bairros/<slug> → páginas HTML para o Google (situação por bairro, só relatos reais)
+//   GET  /sitemap.xml, /robots.txt → indexação
+//   GET  /api/geocode?q=           → autocompletar de endereços de Salto (proxy com cache para o Photon/OSM)
+//   GET  /api/monitor              → relatos das últimas N horas (horas=1..72, demo) para o modo monitoramento
+//   GET  /api/relatorios/relatos.csv → relatório em CSV com os mesmos filtros
 //
-// No dev, o shell (Angular) repassa /api para cá via proxy.conf.json, então funciona
-// também pelo túnel HTTPS do cloudflared. WebSocket e não Server-Sent Events porque os
-// Quick Tunnels da Cloudflare (trycloudflare.com) seguram o stream SSE.
+// No dev, o shell (Angular) repassa /api para cá via proxy.conf.json; no Docker, o Nginx.
+// WebSocket e não Server-Sent Events porque os Quick Tunnels da Cloudflare seguram o stream SSE.
 
 import { createServer } from 'node:http';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { readFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { connect, insertReport, pool, recentReports } from './db.mjs';
+import { geocode } from './geocode.mjs';
+import { paginaBairro, paginaIndice, robots, sitemap } from './seo.mjs';
+import { listaBairros, metricas, monitor, parseFiltros, relatoriosCsv } from './metricas.mjs';
 
 // API_PORT e não PORT: ferramentas de dev costumam definir PORT para o app principal.
 const PORT = Number(process.env.API_PORT ?? 4300);
-const DATA_FILE = process.env.DATA_FILE ?? join(dirname(fileURLToPath(import.meta.url)), 'data', 'reports.json');
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const KEEP_MS = 7 * DAY_MS;
 const SALTO_BOUNDS = { west: -47.42, south: -23.27, east: -47.2, north: -23.08 };
 const STATUSES = new Set(['sem-agua', 'voltou']);
 const MAX_BODY_BYTES = 2048;
@@ -30,35 +37,8 @@ const PUBLIC_DECIMALS = 4;
 /** Arredonda feito aqui também: o servidor nunca guarda a posição exata. */
 const coarsen = (v) => Math.round(v * 10 ** PUBLIC_DECIMALS) / 10 ** PUBLIC_DECIMALS;
 
-/** @type {Array<{id: string, lng: number, lat: number, bairro: string, status: string, createdAt: number}>} */
-let reports = [];
 /** @type {Map<string, number[]>} */
 const hits = new Map();
-
-async function load() {
-  try {
-    reports = JSON.parse(await readFile(DATA_FILE, 'utf8'));
-  } catch {
-    reports = [];
-  }
-  prune();
-}
-
-let saveTimer;
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    await mkdir(dirname(DATA_FILE), { recursive: true });
-    const tmp = `${DATA_FILE}.tmp`;
-    await writeFile(tmp, JSON.stringify(reports));
-    await rename(tmp, DATA_FILE);
-  }, 300);
-}
-
-function prune() {
-  const cutoff = Date.now() - KEEP_MS;
-  reports = reports.filter((r) => r.createdAt >= cutoff);
-}
 
 function clientIp(req) {
   // Atrás do cloudflared o IP real vem neste cabeçalho.
@@ -67,12 +47,12 @@ function clientIp(req) {
     .trim();
 }
 
-function rateLimited(ip) {
+function rateLimited(ip, max = RATE_LIMIT.max) {
   const now = Date.now();
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT.windowMs);
   recent.push(now);
   hits.set(ip, recent);
-  return recent.length > RATE_LIMIT.max;
+  return recent.length > max;
 }
 
 /** Valida e normaliza o relato vindo do cliente. Retorna null se inválido. */
@@ -86,7 +66,7 @@ function parseReport(body) {
     return null;
   }
   if (typeof bairro !== 'string' || bairro.length > 80) return null;
-  return { id, lng: coarsen(lng), lat: coarsen(lat), bairro, status, createdAt: Date.now() };
+  return { id, lng: coarsen(lng), lat: coarsen(lat), bairro, status };
 }
 
 function sendJson(res, code, data) {
@@ -105,36 +85,106 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-const server = createServer(async (req, res) => {
+function sendTexto(res, code, tipo, corpo, cacheSeg = 300) {
+  res.writeHead(code, { 'Content-Type': `${tipo}; charset=utf-8`, 'Cache-Control': `public, max-age=${cacheSeg}` });
+  res.end(corpo);
+}
+
+async function handle(req, res) {
   const url = new URL(req.url ?? '/', 'http://localhost');
 
+  // ---- Indexação (HTML/XML/texto, não JSON) ----
+  if (req.method === 'GET' && url.pathname === '/robots.txt') return sendTexto(res, 200, 'text/plain', robots(req), 3600);
+  if (req.method === 'GET' && url.pathname === '/sitemap.xml') return sendTexto(res, 200, 'application/xml', await sitemap(req), 600);
+  if (req.method === 'GET' && (url.pathname === '/bairros' || url.pathname === '/bairros/')) {
+    return sendTexto(res, 200, 'text/html', await paginaIndice(req), 120);
+  }
+  const bairro = url.pathname.match(/^\/bairros\/([a-z0-9-]+)\/?$/);
+  if (req.method === 'GET' && bairro) {
+    const { status, html } = await paginaBairro(req, bairro[1]);
+    return sendTexto(res, status, 'text/html', html, status === 200 ? 120 : 60);
+  }
+
   if (url.pathname === '/api/reports' && req.method === 'GET') {
-    const cutoff = Date.now() - DAY_MS;
-    return sendJson(res, 200, reports.filter((r) => r.createdAt >= cutoff));
+    const horas = Number(url.searchParams.get('horas') ?? 24);
+    if (!Number.isInteger(horas) || horas < 1 || horas > 168) return sendJson(res, 400, { error: 'horas entre 1 e 168.' });
+    return sendJson(res, 200, await recentReports(horas));
   }
 
   if (url.pathname === '/api/reports' && req.method === 'POST') {
     if (rateLimited(clientIp(req))) return sendJson(res, 429, { error: 'Muitos relatos em pouco tempo. Tente daqui a pouco.' });
-    let report;
+    let input;
     try {
-      report = parseReport(await readBody(req));
+      input = parseReport(await readBody(req));
     } catch {
       return sendJson(res, 400, { error: 'Corpo inválido.' });
     }
-    if (!report) return sendJson(res, 422, { error: 'Relato inválido.' });
+    if (!input) return sendJson(res, 422, { error: 'Relato inválido.' });
 
     // Reenvio do mesmo relato (ex.: retry depois de cair a conexão) não duplica.
-    const existing = reports.find((r) => r.id === report.id);
-    if (existing) return sendJson(res, 200, existing);
+    const { report, created } = await insertReport(input);
+    if (created) broadcast(report);
+    return sendJson(res, created ? 201 : 200, report);
+  }
 
-    reports.push(report);
-    prune();
-    scheduleSave();
-    broadcast(report);
-    return sendJson(res, 201, report);
+  if (url.pathname === '/api/metricas' && req.method === 'GET') {
+    let filtros;
+    try {
+      filtros = parseFiltros(url.searchParams);
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message });
+    }
+    return sendJson(res, 200, await metricas(filtros));
+  }
+
+  if (url.pathname === '/api/geocode' && req.method === 'GET') {
+    // Limite próprio, mais folgado que o de relatos: cada tecla pode virar uma busca.
+    if (rateLimited(`geo:${clientIp(req)}`, 60)) return sendJson(res, 429, { error: 'Muitas buscas. Aguarde um instante.' });
+    try {
+      return sendJson(res, 200, await geocode(url.searchParams.get('q')));
+    } catch (err) {
+      return sendJson(res, 502, { error: err.message.startsWith('Busca') ? err.message : 'Busca de endereços indisponível no momento.' });
+    }
+  }
+
+  if (url.pathname === '/api/monitor' && req.method === 'GET') {
+    try {
+      return sendJson(res, 200, await monitor(url.searchParams));
+    } catch (err) {
+      if (err.message.startsWith('Janela')) return sendJson(res, 400, { error: err.message });
+      throw err;
+    }
+  }
+
+  if (url.pathname === '/api/metricas/bairros' && req.method === 'GET') {
+    return sendJson(res, 200, await listaBairros());
+  }
+
+  if (url.pathname === '/api/relatorios/relatos.csv' && req.method === 'GET') {
+    let filtros;
+    try {
+      filtros = parseFiltros(url.searchParams);
+    } catch (err) {
+      return sendJson(res, 400, { error: err.message });
+    }
+    const nome = `tem-agua-relatos_${filtros.de}_a_${filtros.ate}${filtros.bairro ? `_${filtros.bairro.replace(/\W+/g, '-')}` : ''}.csv`;
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${nome}"`,
+      'Cache-Control': 'no-store',
+    });
+    return res.end(await relatoriosCsv(filtros));
   }
 
   sendJson(res, 404, { error: 'Não encontrado.' });
+}
+
+const server = createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    console.error('[api] erro', req.method, req.url, err);
+    if (!res.headersSent) sendJson(res, 500, { error: 'Erro interno. Tente de novo.' });
+    else res.end();
+  });
 });
 
 // ---- Tempo real ----
@@ -166,5 +216,42 @@ setInterval(() => {
   }
 }, 25_000).unref();
 
-await load();
-server.listen(PORT, () => console.log(`[api] ouvindo em http://localhost:${PORT} · ${reports.length} relatos carregados`));
+// ---- Migração única do protótipo anterior (relatos em apps/api/data/reports.json) ----
+
+async function importLegacyJson() {
+  const file = join(dirname(fileURLToPath(import.meta.url)), 'data', 'reports.json');
+  let list;
+  try {
+    list = JSON.parse(await readFile(file, 'utf8'));
+  } catch {
+    return;
+  }
+  let n = 0;
+  for (const r of list) {
+    const res = await pool.query(
+      `INSERT INTO relatos (id, lng, lat, bairro, status, criado_em)
+       VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0)) ON CONFLICT (id) DO NOTHING`,
+      [r.id, r.lng, r.lat, r.bairro, r.status, r.createdAt],
+    );
+    n += res.rowCount;
+  }
+  await rename(file, `${file}.importado`);
+  console.log(`[api] ${n} relato(s) importado(s) do arquivo JSON antigo`);
+}
+
+// ---- Ciclo de vida ----
+
+async function shutdown(signal) {
+  console.log(`[api] ${signal} recebido, encerrando…`);
+  for (const ws of wss.clients) ws.close(1001, 'servidor reiniciando');
+  server.close();
+  await pool.end().catch(() => {});
+  process.exit(0);
+}
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
+
+await connect();
+await importLegacyJson();
+const { rows } = await pool.query(`SELECT count(*)::int AS n FROM relatos`);
+server.listen(PORT, () => console.log(`[api] ouvindo em http://localhost:${PORT} · ${rows[0].n} relatos no banco`));

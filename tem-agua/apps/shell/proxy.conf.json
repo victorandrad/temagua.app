@@ -7,9 +7,25 @@
     "target": "http://localhost:4202",
     "changeOrigin": true
   },
+  "/remotes/metricas": {
+    "target": "http://localhost:4203",
+    "changeOrigin": true
+  },
   "/api": {
     "target": "http://localhost:4300",
     "changeOrigin": true,
     "ws": true
+  },
+  "/bairros": {
+    "target": "http://localhost:4300",
+    "changeOrigin": true
+  },
+  "/sitemap.xml": {
+    "target": "http://localhost:4300",
+    "changeOrigin": true
+  },
+  "/robots.txt": {
+    "target": "http://localhost:4300",
+    "changeOrigin": true
   }
 }

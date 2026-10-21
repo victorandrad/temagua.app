@@ -2,17 +2,223 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <title>Tem Água? · Salto</title>
+  <title>Tem Água? · Mapa da falta d'água em Salto/SP</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Mapa colaborativo de falta d'água em Salto/SP">
+  <meta name="description" content="Faltou água? Veja no mapa, em tempo real, onde está faltando e onde já voltou em Salto/SP — e avise seus vizinhos. Colaborativo e sem cadastro.">
+
+  <!-- Indexação. __SITE_URL__ e __GOOGLE_SITE_VERIFICATION__ são trocados pelo Nginx (sub_filter) com
+       as variáveis SITE_URL e GOOGLE_SITE_VERIFICATION do compose; no "npm run dev" ficam como estão. -->
+  <link rel="canonical" href="__SITE_URL__/">
+  <meta name="google-site-verification" content="__GOOGLE_SITE_VERIFICATION__">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tem Água?">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Tem Água? · Mapa da falta d'água em Salto/SP">
+  <meta property="og:description" content="Faltou água? Veja no mapa, em tempo real, onde está faltando e onde já voltou em Salto/SP — e avise seus vizinhos. Colaborativo e sem cadastro.">
+  <meta property="og:url" content="__SITE_URL__/">
+  <meta property="og:image" content="__SITE_URL__/icons/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Tem Água?",
+      "url": "__SITE_URL__/",
+      "description": "Mapa colaborativo, em tempo real, da falta d'água em Salto/SP.",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "pt-BR",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+      "areaServed": {
+        "@type": "City",
+        "name": "Salto",
+        "address": { "@type": "PostalAddress", "addressRegion": "SP", "addressCountry": "BR" }
+      }
+    }
+  </script>
+  <!-- Sem JavaScript o script que fecha a splash não roda: ela some e fica o conteúdo do <noscript>. -->
+  <noscript><style>#ta-splash { display: none !important; }</style></noscript>
   <meta name="theme-color" content="#000000">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Tem Água?">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Splash screen: CSS e HTML inline para aparecer antes de qualquer JavaScript carregar.
+       O shell chama window.temAguaSplash.fechar() quando o mapa (ou a tela atual) fica pronto. -->
+  <style>
+    #ta-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      padding: 24px;
+      background: #000;
+      color: #fff;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+      transition: opacity 350ms ease, visibility 350ms;
+    }
+
+    #ta-splash.is-saindo {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .ta-splash__gota {
+      width: 96px;
+      height: 120px;
+      filter: drop-shadow(0 10px 30px rgba(39, 110, 241, 0.35));
+    }
+
+    /* A água sobe até ~60% da gota e fica "respirando". */
+    .ta-splash__agua {
+      transform: translateY(150px);
+      animation: ta-splash-sobe 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards,
+        ta-splash-boia 2.4s ease-in-out 1.6s infinite;
+    }
+
+    .ta-splash__onda {
+      animation: ta-splash-onda 2s linear infinite;
+    }
+
+    .ta-splash__onda--2 {
+      animation-duration: 3.2s;
+      animation-direction: reverse;
+    }
+
+    @keyframes ta-splash-sobe {
+      to { transform: translateY(62px); }
+    }
+
+    @keyframes ta-splash-boia {
+      0%, 100% { transform: translateY(62px); }
+      50% { transform: translateY(56px); }
+    }
+
+    @keyframes ta-splash-onda {
+      from { transform: translateX(0); }
+      to { transform: translateX(-60px); }
+    }
+
+    .ta-splash__nome {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .ta-splash__slogan {
+      margin: 6px 0 0;
+      color: #a6a6a6;
+      font-size: 15px;
+      text-wrap: balance;
+    }
+
+    .ta-splash__carregando {
+      position: absolute;
+      bottom: calc(40px + env(safe-area-inset-bottom));
+      left: 50%;
+      width: 120px;
+      height: 3px;
+      overflow: hidden;
+      border-radius: 2px;
+      background: #262626;
+      transform: translateX(-50%);
+    }
+
+    .ta-splash__carregando::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: 40%;
+      border-radius: 2px;
+      background: #276ef1;
+      animation: ta-splash-barra 1.1s ease-in-out infinite;
+    }
+
+    @keyframes ta-splash-barra {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(250%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ta-splash__agua { animation: none; transform: translateY(62px); }
+      .ta-splash__onda,
+      .ta-splash__carregando::after { animation: none; }
+      .ta-splash__carregando::after { width: 100%; opacity: 0.6; }
+    }
+  </style>
 </head>
 <body>
+  <div id="ta-splash" role="status" aria-live="polite" aria-label="Carregando o Tem Água?">
+    <svg class="ta-splash__gota" viewBox="0 0 120 150" aria-hidden="true">
+      <defs>
+        <clipPath id="ta-splash-clip">
+          <path d="M60 8C60 8 106 62 106 96a46 46 0 0 1-92 0C14 62 60 8 60 8Z" />
+        </clipPath>
+      </defs>
+      <path d="M60 8C60 8 106 62 106 96a46 46 0 0 1-92 0C14 62 60 8 60 8Z" fill="#141414" />
+      <g clip-path="url(#ta-splash-clip)">
+        <g class="ta-splash__agua">
+          <path class="ta-splash__onda ta-splash__onda--2" fill="#5b95f5" opacity="0.55"
+            d="M0 8q15-10 30 0t30 0 30 0 30 0 30 0 30 0 30 0V160H0Z" />
+          <path class="ta-splash__onda" fill="#276ef1"
+            d="M0 12q15-10 30 0t30 0 30 0 30 0 30 0 30 0 30 0V160H0Z" />
+        </g>
+      </g>
+      <path d="M60 8C60 8 106 62 106 96a46 46 0 0 1-92 0C14 62 60 8 60 8Z" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" />
+    </svg>
+    <div>
+      <h1 class="ta-splash__nome">Tem Água?</h1>
+      <p class="ta-splash__slogan">O mapa colaborativo da falta d'água em Salto/SP</p>
+    </div>
+    <div class="ta-splash__carregando" aria-hidden="true"></div>
+  </div>
+
+  <script>
+    // Controle da splash: some com fade quando o app avisa que está pronto (mínimo de 700 ms na
+    // tela para não piscar), ou depois de 10 s em qualquer caso, para nunca prender a pessoa.
+    (function () {
+      var inicio = Date.now();
+      var MIN_MS = 700;
+      var fechada = false;
+      function fechar() {
+        if (fechada) return;
+        fechada = true;
+        var el = document.getElementById('ta-splash');
+        if (!el) return;
+        setTimeout(function () {
+          el.classList.add('is-saindo');
+          el.setAttribute('aria-busy', 'false');
+          setTimeout(function () { el.remove(); }, 400);
+        }, Math.max(0, MIN_MS - (Date.now() - inicio)));
+      }
+      window.temAguaSplash = { fechar: fechar };
+      setTimeout(fechar, 10000);
+    })();
+  </script>
+  <noscript>
+    <main style="max-width:680px;margin:0 auto;padding:32px 16px;font-family:system-ui,sans-serif;line-height:1.5">
+      <h1>Tem Água? — mapa da falta d'água em Salto/SP</h1>
+      <p>Quando a água acaba ou volta, os moradores marcam no mapa e todo mundo vê em tempo real onde está faltando. O mapa precisa de JavaScript ativado.</p>
+      <p><a href="/bairros">Ver a situação da água em cada bairro de Salto</a></p>
+    </main>
+  </noscript>
   <app-root></app-root>
 </body>
 </html>
