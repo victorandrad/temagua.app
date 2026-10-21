@@ -97,6 +97,18 @@ O painel em **`/metricas`** consulta `GET /api/metricas?de=AAAA-MM-DD&ate=AAAA-M
 
 Para ver o painel com dados antes de ter relatos reais: `npm run db:seed`. O painel avisa quando o período inclui demonstração e permite desligá-la.
 
+## Setores de abastecimento (reservatórios)
+
+Os setores vêm do mapa [Regiões x Reservatórios](https://www.google.com/maps/d/viewer?mid=1AOlAX-928WBFPFp75o7oMY4K_aIG6bk): 26 centros de reservação, as ~120 áreas que cada um atende e os reservatórios/boosters. `npm run abastecimento:importar` baixa o mapa de novo e regrava `packages/contracts/src/abastecimento.json`.
+
+- **Escolher setores:** com a camada ligada, o selo "Todos os setores ▾" abre a lista dos setores com caixas de marcar, "só este", "Todos" e "Nenhum". O mapa mostra só os escolhidos e se enquadra neles; a escolha fica no aparelho (`tem-agua:setores-visiveis`).
+- **No mapa:** o selo "Reservatórios" liga as áreas, uma cor por setor; setores vizinhos nunca repetem cor nem usam cores que se confundem. Vermelho e verde ficam de fora porque já significam "sem água" e "água voltou". O setor do pin fica realçado; tocar num reservatório mostra o nome.
+- **No painel:** o cartão "Abastecimento" diz qual setor atende o ponto. Se o pin cair num vão entre áreas, mostra a área mais próxima, até 300 m. Também mostra quantos relatos de falta há no setor agora. Com falta em várias áreas do mesmo setor, avisa que o problema pode ser no reservatório. O ranking agrupa por bairro ou por reservatório.
+- **No monitoramento:** o botão "Setores" mostra o contorno e o nome dos setores por baixo do calor, com a mesma lista de escolha da home. Com setores escolhidos, o calor, os números e os pulsos de relato novo contam só os relatos desses setores. A escolha fica na URL (`?modo=monitor&setores=todos` ou `&setores=panorama,santa-cruz`) e no aparelho (`tem-agua:monitor-setores`).
+- **Nas métricas:** "Por reservatório" mostra os relatos de falta por setor e em quantas áreas apareceram (PostGIS: cada relato cai na menor área que o contém).
+- **Nas páginas de bairro:** "Qual reservatório abastece o <bairro>" lista o setor, os reservatórios e as outras áreas atendidas.
+- **Fora do mapa:** chácaras e áreas rurais ficam de fora (22 dos 91 bairros não caem em nenhuma área).
+
 ## Indexação no Google (SEO)
 
 O app é uma SPA (microfrontends carregados por JavaScript), então a API também serve **páginas HTML prontas** para o Google:
