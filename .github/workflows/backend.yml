@@ -1,0 +1,60 @@
+# Backend (API Node + PostgreSQL): npm ci → lint → build → deploy no VPS.
+# Roda quando muda algo da API (ou manual, em Actions → Backend → Run workflow).
+name: Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tem-agua/apps/api/**'
+      - 'tem-agua/docker/api.Dockerfile'
+      # A API lê estes dados dos contracts (páginas de bairro e setores de abastecimento).
+      - 'tem-agua/packages/contracts/src/bairros.json'
+      - 'tem-agua/packages/contracts/src/abastecimento.json'
+      - 'tem-agua/eslint.config.mjs'
+      - 'tem-agua/package.json'
+      - 'tem-agua/package-lock.json'
+      - 'compose.yaml'
+      - 'compose.producao.yaml'
+      - '.github/workflows/backend.yml'
+      - '.github/workflows/deploy-vps.yml'
+  workflow_dispatch:
+
+# Um por vez; um push novo espera o anterior terminar em vez de cancelá-lo no meio.
+concurrency:
+  group: backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: npm ci · lint · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tem-agua
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tem-agua/package-lock.json
+      - name: Instalar dependências (npm ci)
+        run: npm ci
+      - name: Lint (ESLint da API)
+        run: npm run lint:backend
+      - name: Build (imagem Docker da API)
+        run: docker build -f docker/api.Dockerfile -t tem-agua-api:ci .
+
+  deploy:
+    name: Deploy no VPS
+    needs: ci
+    uses: ./.github/workflows/deploy-vps.yml
+    with:
+      parte: backend
+      conferir: /api/reports?horas=1
+    secrets: inherit

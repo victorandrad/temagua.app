@@ -1,0 +1,63 @@
+# Frontend (shell Angular + mapa React + painel/métricas Vue, servidos pelo Nginx):
+# npm ci → lint → build → deploy no VPS. Roda quando muda algo dos front-ends (ou manual).
+name: Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tem-agua/apps/shell/**'
+      - 'tem-agua/apps/mapa/**'
+      - 'tem-agua/apps/painel/**'
+      - 'tem-agua/apps/metricas/**'
+      - 'tem-agua/packages/contracts/**'
+      - 'tem-agua/docker/web.Dockerfile'
+      - 'tem-agua/docker/nginx.conf.template'
+      - 'tem-agua/eslint.config.mjs'
+      - 'tem-agua/package.json'
+      - 'tem-agua/package-lock.json'
+      - 'compose.yaml'
+      - 'compose.producao.yaml'
+      - '.github/workflows/frontend.yml'
+      - '.github/workflows/deploy-vps.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: frontend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: npm ci · lint · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tem-agua
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tem-agua/package-lock.json
+      - name: Instalar dependências (npm ci)
+        run: npm ci
+      - name: Lint (ESLint dos front-ends)
+        run: npm run lint:frontend
+      - name: Typecheck (mapa, painel, métricas)
+        run: npm run typecheck
+      - name: Build (remotos + shell)
+        run: npm run build
+
+  deploy:
+    name: Deploy no VPS
+    needs: ci
+    uses: ./.github/workflows/deploy-vps.yml
+    with:
+      parte: frontend
+      conferir: /remotes/mapa/remoteEntry.js
+    secrets: inherit
