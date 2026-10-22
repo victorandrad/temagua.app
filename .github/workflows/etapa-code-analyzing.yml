@@ -1,0 +1,42 @@
+# Etapa "code-analyzing": ESLint e verificação de tipos da parte (backend ou frontend).
+name: Etapa code-analyzing
+
+on:
+  workflow_call:
+    inputs:
+      parte:
+        description: backend ou frontend
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  linting:
+    name: linting
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/dependencias
+      - name: ESLint (${{ inputs.parte }})
+        working-directory: tem-agua
+        run: npm run lint:${{ inputs.parte }}
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/dependencias
+      - name: TypeScript e vue-tsc (mapa, painel, métricas)
+        if: inputs.parte == 'frontend'
+        working-directory: tem-agua
+        run: npm run typecheck
+      # A API é JavaScript puro (.mjs): confere a sintaxe de todos os módulos.
+      - name: Sintaxe dos módulos da API
+        if: inputs.parte == 'backend'
+        working-directory: tem-agua/apps/api
+        run: for f in *.mjs; do node --check "$f"; done

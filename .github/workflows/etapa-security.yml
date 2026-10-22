@@ -1,0 +1,68 @@
+# Etapa "security": procura vulnerabilidades conhecidas nas dependências (base OSV.dev, a mesma do
+# Dependabot e do npm audit) e publica o resultado na aba Security → Code scanning e no resumo do run.
+# Não bloqueia o deploy: vulnerabilidade em dependência indireta muitas vezes ainda não tem correção.
+name: Etapa security
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  osv-scanning:
+    name: osv-scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Varredura do package-lock (OSV)
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+        # Sai com código 1 quando acha vulnerabilidade; quem trata o resultado é o próximo job.
+        continue-on-error: true
+        with:
+          scan-args: |-
+            --format=sarif
+            --output=osv.sarif
+            --lockfile=tem-agua/package-lock.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osv-sarif
+          path: osv.sarif
+          if-no-files-found: error
+          retention-days: 7
+
+  report-security-issues:
+    name: report-security-issues
+    needs: osv-scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: osv-sarif
+      - name: Publicar em Security → Code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+      - name: Resumo e avisos no run
+        run: |
+          total=$(jq '[.runs[].results[]] | length' osv.sarif)
+          {
+            echo "## 🔒 Dependências (OSV)"
+            if [ "$total" -eq 0 ]; then
+              echo "Nenhuma vulnerabilidade conhecida no \`package-lock.json\`. ✅"
+            else
+              echo "**$total** alerta(s) — detalhes em *Security → Code scanning*."
+              echo
+              echo "| Vulnerabilidade | Detalhe |"
+              echo "|---|---|"
+              jq -r '.runs[].results[] | "| \(.ruleId) | \(.message.text | split("\n")[0] | .[0:160]) |"' osv.sarif
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.runs[].results[] | "::warning title=\(.ruleId)::\(.message.text | split("\n")[0])"' osv.sarif

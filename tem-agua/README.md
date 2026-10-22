@@ -172,16 +172,27 @@ O app roda no VPS em `/opt/tem-agua` (clone do repositório), atrás do **Traefi
 
 **Deploy automático, backend e frontend separados.** Cada push no `main` dispara só o que mudou (ou manual, em *Actions → Backend/Frontend → Run workflow*):
 
-Cada workflow tem jobs separados — **CI** (`npm ci`) → **Lint** e **Build** em paralelo → **Deploy** — e o `node_modules` instalado no CI passa para os outros jobs pelo cache, sem instalar de novo.
+Os dois workflows têm as mesmas 6 etapas, uma depois da outra. Cada etapa é um workflow reutilizável (`.github/workflows/etapa-*.yml`), que o GitHub mostra como uma caixa com os jobs dentro:
 
-| Workflow | Quando roda | Lint | Build (uma vez, no GitHub) | Deploy no VPS |
-|---|---|---|---|---|
-| **Backend** (`.github/workflows/backend.yml`) | `apps/api`, `api.Dockerfile`, JSONs de bairros e abastecimento | `npm run lint:backend` | imagem `ghcr.io/victorandrad/temagua-api:<commit>` | baixa a imagem e troca a `api` |
-| **Frontend** (`.github/workflows/frontend.yml`) | shell, mapa, painel, métricas, contracts, `web.dist.Dockerfile`, Nginx | `npm run lint:frontend` + typecheck | `npm run build` → imagem `ghcr.io/victorandrad/temagua-web:<commit>` (só copia os `dist` para o Nginx) | baixa a imagem e troca o `web` |
+| Etapa | Jobs | O que faz |
+|---|---|---|
+| **install** | `npm ci` | a primeira de todas: instala as dependências do monorepo e guarda o `node_modules` no cache; as outras etapas só restauram |
+| **security** | `osv-scanning`, `report-security-issues` | procura vulnerabilidades conhecidas nas dependências (`package-lock.json`, base OSV.dev) e publica em *Security → Code scanning* e no resumo do run; avisa, mas não bloqueia |
+| **code-analyzing** | `linting`, `typecheck` | ESLint da parte; TypeScript/vue-tsc no frontend e checagem de sintaxe dos módulos da API |
+| **build-app** | `build-app:producao` | frontend: `npm run build` (os `dist` seguem como artefato); backend: a API sobe contra um PostGIS de teste e precisa responder relatos, métricas, sitemap e páginas de bairro |
+| **build-image** | `build-image:producao` | gera a imagem Docker e publica no registro do GitHub com a tag do commit |
+| **deploy** | `deploy:producao` | o VPS baixa a imagem e troca o container; no fim o workflow confere se o site responde |
+
+O cache do `node_modules` tem como chave o hash do `package-lock.json`: com o lock igual, o `npm ci` da etapa install não precisa rodar de novo, e as outras etapas o restauram pela action `.github/actions/dependencias`.
+
+| Workflow | Quando roda | Imagem (gerada uma vez, no GitHub) | Deploy no VPS |
+|---|---|---|---|
+| **Backend** (`.github/workflows/backend.yml`) | `apps/api`, `api.Dockerfile`, JSONs de bairros e abastecimento | `ghcr.io/victorandrad/temagua-api:<commit>` | baixa a imagem e troca a `api` |
+| **Frontend** (`.github/workflows/frontend.yml`) | shell, mapa, painel, métricas, contracts, `web.dist.Dockerfile`, Nginx | `ghcr.io/victorandrad/temagua-web:<commit>` (só copia os `dist` para o Nginx) | baixa a imagem e troca o `web` |
 
 **O VPS não compila nada:** ele só baixa a imagem pronta do registro do GitHub (GHCR) e troca o container. O token para baixar é o do próprio job (expira quando o job termina) e vai pela entrada do SSH, sem segredo guardado no servidor. A tag de cada imagem fica no `.env` do servidor (`API_TAG`, `WEB_TAG`); para voltar a uma versão anterior, rode no VPS `tem-agua-deploy frontend <commit>` (ou `backend`).
 
-Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json` ou no `eslint.config.mjs` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo` (com o commit opcional), atualiza o compose (`git reset --hard origin/main`), baixa a imagem e troca só aquele container (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se o lint ou o build falharem no GitHub, o deploy nem roda e a versão anterior continua no ar. No fim, o workflow confere se o site responde.
+Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json`, no `eslint.config.mjs`, nas etapas (`etapa-*.yml`) ou na action `dependencias` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo` (com o commit opcional), atualiza o compose (`git reset --hard origin/main`), baixa a imagem e troca só aquele container (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se qualquer etapa antes do deploy falhar no GitHub, o deploy nem roda e a versão anterior continua no ar. No fim, o workflow confere se o site responde.
 
 O Nginx do `web` acha a API pelo DNS do Docker a cada 10 s, então o deploy só do backend não exige reiniciar o frontend.
 

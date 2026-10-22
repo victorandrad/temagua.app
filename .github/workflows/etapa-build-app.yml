@@ -1,0 +1,76 @@
+# Etapa "build-app":
+# - frontend: npm run build (remotos + shell); os dist vão como artefato para a etapa build-image;
+# - backend: a API sobe de verdade contra um PostgreSQL/PostGIS e precisa responder (relatos, sitemap,
+#   página de bairro). A imagem só é gerada se isso passar.
+name: Etapa build-app
+
+on:
+  workflow_call:
+    inputs:
+      parte:
+        description: backend ou frontend
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    name: build-app:producao
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      # Imagem vazia = sem banco (o frontend não precisa).
+      db:
+        image: ${{ inputs.parte == 'backend' && 'postgis/postgis:18-3.6-alpine' || '' }}
+        env:
+          POSTGRES_USER: temagua
+          POSTGRES_PASSWORD: temagua
+          POSTGRES_DB: temagua
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U temagua -d temagua"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/dependencias
+
+      - name: Build dos front-ends (remotos + shell)
+        if: inputs.parte == 'frontend'
+        working-directory: tem-agua
+        run: npm run build
+      - name: Guardar os dist para a imagem
+        if: inputs.parte == 'frontend'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-frontend
+          path: |
+            tem-agua/apps/shell/dist
+            tem-agua/apps/mapa/dist
+            tem-agua/apps/painel/dist
+            tem-agua/apps/metricas/dist
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: API sobe e responde
+        if: inputs.parte == 'backend'
+        working-directory: tem-agua/apps/api
+        env:
+          DATABASE_URL: postgres://temagua:temagua@localhost:5432/temagua
+          API_PORT: 4300
+        run: |
+          node server.mjs > api.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fs -o /dev/null http://127.0.0.1:4300/api/reports && break
+            sleep 1
+          done
+          set -x
+          curl -fsS -o /dev/null http://127.0.0.1:4300/api/reports?horas=24
+          curl -fsS -o /dev/null http://127.0.0.1:4300/api/metricas
+          curl -fsS -o /dev/null http://127.0.0.1:4300/sitemap.xml
+          curl -fsS -o /dev/null http://127.0.0.1:4300/bairros
+      - name: Log da API
+        if: always() && inputs.parte == 'backend'
+        run: cat tem-agua/apps/api/api.log || true
