@@ -1,0 +1,12 @@
+# Contexto do web.dist.Dockerfile: só o template do Nginx e os dist do build (o .dockerignore
+# geral exclui os dist, por isso este arquivo próprio).
+**
+!docker/nginx.conf.template
+!apps/shell/dist/shell/browser
+!apps/shell/dist/shell/browser/**
+!apps/mapa/dist
+!apps/mapa/dist/**
+!apps/painel/dist
+!apps/painel/dist/**
+!apps/metricas/dist
+!apps/metricas/dist/**

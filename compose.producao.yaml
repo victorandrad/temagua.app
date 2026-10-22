@@ -1,13 +1,19 @@
 # Produção no VPS, atrás do Traefik do servidor (HTTPS automático com Let's Encrypt).
 #
-#   docker compose -f compose.yaml -f compose.producao.yaml up -d --build
+#   docker compose -f compose.yaml -f compose.producao.yaml pull api web
+#   docker compose -f compose.yaml -f compose.producao.yaml up -d --no-build
 #
-# Variáveis em .env (fora do git): DOMINIO, SITE_URL, POSTGRES_PASSWORD, APARELHO_SEGREDO.
+# As imagens vêm prontas do registro do GitHub (build feito uma vez no CI): o VPS não compila nada.
+# API_TAG/WEB_TAG = commit publicado (o tem-agua-deploy grava no .env a cada deploy).
+# Variáveis em .env (fora do git): DOMINIO, SITE_URL, POSTGRES_PASSWORD, APARELHO_SEGREDO, API_TAG, WEB_TAG.
 # Nenhuma porta aberta no servidor: só o Traefik chega ao web, pela rede tem-agua_default.
 services:
   db:
     ports: !reset []
+  api:
+    image: ghcr.io/victorandrad/temagua-api:${API_TAG:-latest}
   web:
+    image: ghcr.io/victorandrad/temagua-web:${WEB_TAG:-latest}
     ports: !reset []
     labels:
       traefik.enable: "true"
