@@ -33,6 +33,12 @@ server {
   gzip_min_length 1024;
   gzip_types text/css application/javascript text/javascript application/json image/svg+xml application/xml;
 
+  # DNS interno do Docker, consultado de novo a cada 10 s: no deploy só do backend o container da API
+  # é recriado (pode mudar de IP) e este Nginx não reinicia. proxy_pass com variável faz o Nginx
+  # resolver "api" na hora, em vez de guardar o IP da inicialização.
+  resolver 127.0.0.11 valid=10s ipv6=off;
+  set $api http://api:4300;
+
   location = /healthz {
     access_log off;
     default_type text/plain;
@@ -42,7 +48,7 @@ server {
   # ---- API ----
 
   location = /api/ws {
-    proxy_pass http://api:4300;
+    proxy_pass $api;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
@@ -54,7 +60,7 @@ server {
 
   # ^~: nenhuma regex abaixo (ex.: .js/.mjs) pode capturar uma rota da API.
   location ^~ /api/ {
-    proxy_pass http://api:4300;
+    proxy_pass $api;
     proxy_http_version 1.1;
     proxy_set_header Host $http_host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -64,13 +70,13 @@ server {
   # ---- Indexação no Google: páginas de bairro, sitemap e robots vêm da API (HTML no servidor) ----
 
   location ~ ^/(robots\.txt|sitemap\.xml)$ {
-    proxy_pass http://api:4300;
+    proxy_pass $api;
     proxy_set_header Host $http_host;
     proxy_set_header X-Forwarded-Proto $proto;
   }
 
   location ^~ /bairros {
-    proxy_pass http://api:4300;
+    proxy_pass $api;
     proxy_set_header Host $http_host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $proto;
