@@ -1,11 +1,17 @@
 # Etapa "security": procura vulnerabilidades conhecidas nas dependências (base OSV.dev, a mesma do
 # Dependabot e do npm audit) e publica o resultado na aba Security → Code scanning, no resumo do run e
-# em issues (uma por vulnerabilidade, fechada sozinha quando ela some da varredura).
+# em issues da parte que chamou (backend ou frontend): uma por vulnerabilidade e parte, fechada sozinha
+# quando ela some da varredura (.github/scripts/issues-seguranca.mjs).
 # Não bloqueia o deploy: vulnerabilidade em dependência indireta muitas vezes ainda não tem correção.
 name: Etapa security
 
 on:
   workflow_call:
+    inputs:
+      parte:
+        description: backend ou frontend (de quem são as issues que esta execução abre e fecha)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -42,12 +48,14 @@ jobs:
       contents: read
       security-events: write
       issues: write
-    # Backend e frontend rodam a mesma varredura no mesmo push: um por vez, para não abrir issue duplicada.
+    # Backend e frontend rodam no mesmo push e dividem as issues das ferramentas da raiz: um por vez.
     concurrency:
       group: seguranca-issues
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+      # node_modules da etapa install: o npm ls diz de que parte do monorepo vem cada pacote vulnerável.
+      - uses: ./.github/actions/dependencias
       - uses: actions/download-artifact@v4
         with:
           name: osv-sarif
@@ -64,7 +72,7 @@ jobs:
             if [ "$total" -eq 0 ]; then
               echo "Nenhuma vulnerabilidade conhecida no \`package-lock.json\`. ✅"
             else
-              echo "**$total** alerta(s) — detalhes em *Security → Code scanning*."
+              echo "**$total** alerta(s) no monorepo — detalhes em *Security → Code scanning* e nas issues com o label \`segurança\`."
               echo
               echo "| Vulnerabilidade | Detalhe |"
               echo "|---|---|"
@@ -72,51 +80,8 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           jq -r '.runs[].results[] | "::warning title=\(.ruleId)::\(.message.text | split("\n")[0])"' osv.sarif
-
-      # Uma issue por vulnerabilidade (título "[segurança] <id> · <pacote> · <gravidade>", label "segurança").
-      # Já aberta: não duplica. Sumiu da varredura (dependência atualizada): a issue é fechada com um comentário.
-      - name: Abrir e fechar issues das vulnerabilidades
+      - name: Issues de segurança (${{ inputs.parte }})
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          gh label create "segurança" --color B60205 --description "Vulnerabilidade encontrada pela etapa security (OSV)" --force >/dev/null
-          gh label create "dependências" --color 0366D6 --description "Atualização de dependência" --force >/dev/null
-          abertas=$(gh issue list --label "segurança" --state open --limit 500 --json number,title)
-          jq -r '.runs[].results[].ruleId' osv.sarif | sort -u > encontradas.txt
-
-          while read -r id; do
-            [ -n "$id" ] || continue
-            if jq -e --arg id "$id" 'any(.[]; .title | contains("] " + $id + " ·"))' <<< "$abertas" > /dev/null; then
-              echo "$id: issue já aberta"
-              continue
-            fi
-            pacote=$(jq -r --arg id "$id" '[.runs[].results[] | select(.ruleId == $id) | .message.text | capture("Package .(?<p>[^ ]+). is vulnerable").p] | unique | join(", ")' osv.sarif)
-            gravidade=$(jq -r --arg id "$id" 'first(.runs[].tool.driver.rules[] | select(.id == $id)) | (.properties["security-severity"] // "") as $s
-              | if $s == "" then "gravidade não informada"
-                else ($s | tonumber) as $n | (if $n >= 9 then "crítica" elif $n >= 7 then "alta" elif $n >= 4 then "média" else "baixa" end) + " (" + $s + ")" end' osv.sarif)
-            {
-              echo "**Pacote:** \`$pacote\`"
-              echo "**Gravidade:** $gravidade"
-              echo "**Onde:** \`tem-agua/package-lock.json\` · encontrada no commit ${GITHUB_SHA::7} ([execução]($RUN_URL))"
-              echo
-              echo "---"
-              echo
-              jq -r --arg id "$id" 'first(.runs[].tool.driver.rules[] | select(.id == $id)) | (.help.markdown // .fullDescription.text // "") | .[0:60000]' osv.sarif
-              echo
-              echo "---"
-              echo "_Aberta automaticamente pela etapa **security** (OSV-Scanner). Ela fecha sozinha quando a vulnerabilidade sumir da varredura, por exemplo depois de atualizar a dependência._"
-            } > corpo.md
-            # < /dev/null: o gh não pode ler a lista que alimenta o laço.
-            gh issue create --title "[segurança] $id · $pacote · $gravidade" --label "segurança" --label "dependências" --body-file corpo.md < /dev/null
-          done < encontradas.txt
-
-          jq -r '.[] | "\(.number)\t\(.title)"' <<< "$abertas" | while IFS=$'\t' read -r numero titulo; do
-            id=$(sed -n 's/^\[segurança\] \([^ ]*\) ·.*/\1/p' <<< "$titulo")
-            [ -n "$id" ] || continue
-            if ! grep -qxF "$id" encontradas.txt; then
-              gh issue close "$numero" --reason completed \
-                --comment "Não aparece mais na varredura do commit ${GITHUB_SHA::7} ([execução]($RUN_URL)): a dependência foi atualizada ou a vulnerabilidade saiu da base. ✅" < /dev/null
-            fi
-          done
+        run: node .github/scripts/issues-seguranca.mjs "${{ inputs.parte }}" osv.sarif

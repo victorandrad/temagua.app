@@ -178,7 +178,7 @@ Os dois workflows têm as mesmas 6 etapas, uma depois da outra. Cada etapa é um
 | Etapa | Jobs | O que faz |
 |---|---|---|
 | **install** | `npm ci` | a primeira de todas: instala as dependências do monorepo e guarda o `node_modules` no cache; as outras etapas só restauram |
-| **security** | `osv-scanning`, `report-security-issues` | procura vulnerabilidades conhecidas nas dependências (`package-lock.json`, base OSV.dev) e publica em *Security → Code scanning*, no resumo do run e em **issues** (uma por vulnerabilidade, label `segurança`; fecha sozinha quando a dependência é atualizada); avisa, mas não bloqueia |
+| **security** | `osv-scanning`, `report-security-issues` | procura vulnerabilidades conhecidas nas dependências (`package-lock.json`, base OSV.dev) e publica em *Security → Code scanning*, no resumo do run e em **issues separadas por parte**: o pipeline do backend abre as do backend e o do frontend, as do frontend (labels `segurança`, `backend`/`frontend`/`ferramentas` e `produção` ou `só build`, com a árvore de quem usa o pacote); a issue fecha sozinha quando a dependência é atualizada. Avisa, mas não bloqueia |
 | **code-analyzing** | `linting`, `typecheck` | ESLint da parte; TypeScript/vue-tsc no frontend e checagem de sintaxe dos módulos da API |
 | **build-app** | `build-app:producao` | frontend: `npm run build` (os `dist` seguem como artefato); backend: a API sobe contra um PostGIS de teste e precisa responder relatos, métricas, sitemap e páginas de bairro |
 | **build-image** | `build-image:producao` | gera a imagem Docker e publica no registro do GitHub com a tag do commit |
