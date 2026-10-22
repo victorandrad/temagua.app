@@ -172,16 +172,20 @@ O app roda no VPS em `/opt/tem-agua` (clone do repositório), atrás do **Traefi
 
 **Deploy automático, backend e frontend separados.** Cada push no `main` dispara só o que mudou (ou manual, em *Actions → Backend/Frontend → Run workflow*):
 
-| Workflow | Quando roda | npm ci | Lint | Build | Deploy no VPS |
-|---|---|---|---|---|---|
-| **Backend** (`.github/workflows/backend.yml`) | `apps/api`, `api.Dockerfile`, JSONs de bairros e abastecimento | ✓ | `npm run lint:backend` | imagem Docker da API | recria `db` + `api` |
-| **Frontend** (`.github/workflows/frontend.yml`) | shell, mapa, painel, métricas, contracts, `web.Dockerfile`, Nginx | ✓ | `npm run lint:frontend` + typecheck | `npm run build` (remotos + shell) | recria `web` |
+Cada workflow tem jobs separados — **CI** (`npm ci`) → **Lint** e **Build** em paralelo → **Deploy** — e o `node_modules` instalado no CI passa para os outros jobs pelo cache, sem instalar de novo.
 
-Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json` ou no `eslint.config.mjs` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo`, faz `git reset --hard origin/main` e recria só aquela parte (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se o build falhar, a versão anterior continua no ar. No fim, o workflow confere se o site responde.
+| Workflow | Quando roda | Lint | Build (uma vez, no GitHub) | Deploy no VPS |
+|---|---|---|---|---|
+| **Backend** (`.github/workflows/backend.yml`) | `apps/api`, `api.Dockerfile`, JSONs de bairros e abastecimento | `npm run lint:backend` | imagem `ghcr.io/victorandrad/temagua-api:<commit>` | baixa a imagem e troca a `api` |
+| **Frontend** (`.github/workflows/frontend.yml`) | shell, mapa, painel, métricas, contracts, `web.dist.Dockerfile`, Nginx | `npm run lint:frontend` + typecheck | `npm run build` → imagem `ghcr.io/victorandrad/temagua-web:<commit>` (só copia os `dist` para o Nginx) | baixa a imagem e troca o `web` |
+
+**O VPS não compila nada:** ele só baixa a imagem pronta do registro do GitHub (GHCR) e troca o container. O token para baixar é o do próprio job (expira quando o job termina) e vai pela entrada do SSH, sem segredo guardado no servidor. A tag de cada imagem fica no `.env` do servidor (`API_TAG`, `WEB_TAG`); para voltar a uma versão anterior, rode no VPS `tem-agua-deploy frontend <commit>` (ou `backend`).
+
+Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json` ou no `eslint.config.mjs` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo` (com o commit opcional), atualiza o compose (`git reset --hard origin/main`), baixa a imagem e troca só aquele container (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se o lint ou o build falharem no GitHub, o deploy nem roda e a versão anterior continua no ar. No fim, o workflow confere se o site responde.
 
 O Nginx do `web` acha a API pelo DNS do Docker a cada 10 s, então o deploy só do backend não exige reiniciar o frontend.
 
-Deploy à mão (no VPS): `tem-agua-deploy backend`, `tem-agua-deploy frontend` ou `tem-agua-deploy` (tudo). Ao mudar `docker/deploy-vps.sh`, copie de novo para `/usr/local/bin/tem-agua-deploy` (o servidor não o atualiza sozinho, de propósito: o comando que a chave pode rodar não muda num push).
+Deploy à mão (no VPS): `tem-agua-deploy backend [commit]`, `tem-agua-deploy frontend [commit]` ou `tem-agua-deploy` (tudo, tag `latest`). Para rodar o compose de produção à mão, use sempre `--no-build`. Ao mudar `docker/deploy-vps.sh`, copie de novo para `/usr/local/bin/tem-agua-deploy` (o servidor não o atualiza sozinho, de propósito: o comando que a chave pode rodar não muda num push).
 
 ### Outros servidores
 
