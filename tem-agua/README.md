@@ -170,13 +170,18 @@ O app roda no VPS em `/opt/tem-agua` (clone do repositório), atrás do **Traefi
 - `/opt/tem-agua/.env` (fora do git, só root lê): `DOMINIO`, `SITE_URL`, `POSTGRES_PASSWORD` e `APARELHO_SEGREDO`, gerados no próprio servidor.
 - DNS: registro **A** `saltotemagua` → `177.7.36.12` (e AAAA para o IPv6) no DNS de `victorandra.de` (GoDaddy).
 
-**Deploy automático** (`.github/workflows/deploy.yml`): a cada push no `main` (menos mudanças só de documentação) ou manual em *Actions → Deploy no VPS → Run workflow*:
+**Deploy automático, backend e frontend separados.** Cada push no `main` dispara só o que mudou (ou manual, em *Actions → Backend/Frontend → Run workflow*):
 
-1. **Verificar**: `npm ci`, typecheck dos remotos e build do shell nos servidores do GitHub.
-2. **Deploy**: SSH no VPS com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script faz `git reset --hard origin/main` e `docker compose ... up -d --build --wait`; se o build falhar, a versão anterior continua no ar.
-3. Confere se a home e a API respondem.
+| Workflow | Quando roda | npm ci | Lint | Build | Deploy no VPS |
+|---|---|---|---|---|---|
+| **Backend** (`.github/workflows/backend.yml`) | `apps/api`, `api.Dockerfile`, JSONs de bairros e abastecimento | ✓ | `npm run lint:backend` | imagem Docker da API | recria `db` + `api` |
+| **Frontend** (`.github/workflows/frontend.yml`) | shell, mapa, painel, métricas, contracts, `web.Dockerfile`, Nginx | ✓ | `npm run lint:frontend` + typecheck | `npm run build` (remotos + shell) | recria `web` |
 
-Deploy à mão (no VPS): `tem-agua-deploy`. Ao mudar `docker/deploy-vps.sh`, copie de novo para `/usr/local/bin/tem-agua-deploy` (o servidor não o atualiza sozinho, de propósito: o comando que a chave pode rodar não muda num push).
+Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json` ou no `eslint.config.mjs` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo`, faz `git reset --hard origin/main` e recria só aquela parte (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se o build falhar, a versão anterior continua no ar. No fim, o workflow confere se o site responde.
+
+O Nginx do `web` acha a API pelo DNS do Docker a cada 10 s, então o deploy só do backend não exige reiniciar o frontend.
+
+Deploy à mão (no VPS): `tem-agua-deploy backend`, `tem-agua-deploy frontend` ou `tem-agua-deploy` (tudo). Ao mudar `docker/deploy-vps.sh`, copie de novo para `/usr/local/bin/tem-agua-deploy` (o servidor não o atualiza sozinho, de propósito: o comando que a chave pode rodar não muda num push).
 
 ### Outros servidores
 

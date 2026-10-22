@@ -19,6 +19,7 @@ npm run db:psql      # abre o psql no banco
 Dentro de `tem-agua/`:
 
 ```bash
+npm run lint                               # ESLint 10 em tudo; lint:backend (apps/api) e lint:frontend (shell, mapa, painel, metricas, contracts)
 npm run typecheck                          # tsc (mapa) + vue-tsc (painel, metricas) — NÃO cobre o shell
 cd apps/shell && npx ng build              # type-check/build do shell (Angular)
 npm run build                              # build de produção dos três front-ends
@@ -27,7 +28,7 @@ npm run dev -w apps/painel                 # idem, :4202
 npm run dev -w apps/metricas               # idem, :4203 (tem proxy /api próprio para a API em :4300)
 ```
 
-Não há suíte de testes nem linter configurados. Valide com typecheck/build e rodando o app.
+Não há suíte de testes. Valide com `npm run lint`, typecheck/build e rodando o app. O lint (`tem-agua/eslint.config.mjs`, flat config) usa só regras que pegam erro (`recommended`/`essential`, hooks do React), sem formatação; `no-undef` fica desligado em TS/Vue (o TypeScript já confere) e o `.vue` precisa do `vue-eslint-parser` explícito (o recommended do TypeScript troca o parser).
 
 `npm run dev` (`scripts/dev.mjs`) recusa subir se alguma porta estiver ocupada e mostra o PID — use `npm run stop`. Ele só inicia o shell depois que os `remoteEntry.js` dos remotos respondem.
 
@@ -165,7 +166,8 @@ npm run docker:down    # inclui os perfis ngrok/cloudflared; "docker compose dow
 
 - No ar em **https://saltotemagua.victorandra.de** (VPS KVM 2, `177.7.36.12`), em `/opt/tem-agua`, atrás do Traefik do servidor (`/docker/traefik-duis`, rede do host, Let's Encrypt `letsencrypt`). O VPS tem **outros sistemas** (pnsa, controle-carnes, controle-excursao): não mexa neles nem no Traefik.
 - `compose.producao.yaml` = portas fora (`!reset`) + labels do Traefik; `.env` do servidor (fora do git) tem `DOMINIO`, `SITE_URL`, `POSTGRES_PASSWORD`, `APARELHO_SEGREDO`. Rode sempre `docker compose -f compose.yaml -f compose.producao.yaml ...`.
-- **Deploy automático** (`.github/workflows/deploy.yml`): push no `main` (exceto `*.md`/`docs/`) → job "verificar" (`npm ci`, typecheck, `ng build`) → SSH com o secret `VPS_SSH_KEY`, cuja chave pública está no `authorized_keys` do root com `restrict,command="/usr/local/bin/tem-agua-deploy"` (= `tem-agua/docker/deploy-vps.sh`, copiado à mão: o comando permitido não muda num push). O repositório é **público**: não use runner self-hosted no VPS.
+- **Deploy automático, backend e frontend separados**: `.github/workflows/backend.yml` (muda `apps/api`, `api.Dockerfile`, JSONs de bairros/abastecimento…) e `frontend.yml` (muda shell/mapa/painel/metricas, contracts, `web.Dockerfile`, Nginx…), cada um com `npm ci → lint → (typecheck) → build → deploy`; o deploy é o reutilizável `deploy-vps.yml` (SSH com o secret `VPS_SSH_KEY`). A chave pública está no `authorized_keys` do root com `restrict,command="/usr/local/bin/tem-agua-deploy"` (= `tem-agua/docker/deploy-vps.sh`, **copiado à mão**: o comando permitido não muda num push); o script lê `$SSH_ORIGINAL_COMMAND` = `backend` (db + api), `frontend` (web) ou `tudo`, recusa outra coisa, usa `--no-deps` e espera o outro deploy (`flock -w 900`). O repositório é **público**: não use runner self-hosted no VPS.
+- O Nginx resolve a API pelo DNS do Docker a cada 10 s (`resolver 127.0.0.11` + `proxy_pass $api`): no deploy só do backend o container da API muda de IP e o `web` não reinicia. Não volte para `proxy_pass http://api:4300` fixo.
 - O `authorized_keys` do VPS tinha uma linha sem quebra no fim: ao acrescentar chaves, garanta o `\n` antes (`printf '%s\n'`), senão a chave nova gruda na anterior.
 
 ## Restrições do ambiente
