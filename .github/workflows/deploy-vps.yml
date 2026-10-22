@@ -1,8 +1,10 @@
 # Deploy no VPS da Hostinger, reutilizado pelos workflows "Backend" e "Frontend".
 #
 # SSH com a chave do secret VPS_SSH_KEY. No servidor essa chave só pode rodar
-# /usr/local/bin/tem-agua-deploy (tem-agua/docker/deploy-vps.sh), que recebe "backend" ou "frontend"
-# e recria só aquela parte. Sem o secret, o deploy é pulado com um aviso.
+# /usr/local/bin/tem-agua-deploy (tem-agua/docker/deploy-vps.sh), que recebe "backend <commit>" ou
+# "frontend <commit>", baixa a imagem já construída no job Build (ghcr.io) e troca só aquele container.
+# O token do registro vai pela entrada do SSH: é o GITHUB_TOKEN deste job (packages: read), que expira
+# no fim dele. Sem o secret VPS_SSH_KEY, o deploy é pulado com um aviso.
 name: Deploy no VPS
 
 on:
@@ -40,6 +42,8 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           PARTE: ${{ inputs.parte }}
+          COMMIT: ${{ github.sha }}
+          REGISTRO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "$SSH_KEY" ]; then
             echo "::warning::Secret VPS_SSH_KEY não configurado: deploy pulado."
@@ -49,8 +53,9 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy
           chmod 600 ~/.ssh/deploy
           printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
-          # O servidor só aceita "backend", "frontend" ou "tudo" (restrict,command=...).
-          ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$VPS_HOST" "$PARTE"
+          # O servidor só aceita "<backend|frontend|tudo> [commit]" (restrict,command=...).
+          printf '%s\n' "$REGISTRO_TOKEN" |
+            ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$VPS_HOST" "$PARTE $COMMIT"
           echo "feito=true" >> "$GITHUB_OUTPUT"
 
       - name: Conferir o site
