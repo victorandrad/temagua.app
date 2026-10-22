@@ -3,7 +3,7 @@
 // conteúdo em HTML puro para as buscas que importam ("falta de água <bairro> salto") e levam
 // para o mapa ao vivo em /?bairro=<slug>.
 //
-// Só usam relatos REAIS (origem = 'app'): a demonstração nunca aparece para o Google.
+// Só usam relatos de origem = 'app'.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

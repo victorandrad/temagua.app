@@ -22,7 +22,6 @@ const preset = ref<Preset>('7d');
 const customDe = ref(somaDias(hojeEmSalto(), -6));
 const customAte = ref(hojeEmSalto());
 const bairro = ref<string | null>(null);
-const demo = ref(true);
 
 const m = ref<Metricas | null>(null);
 const erro = ref<string | null>(null);
@@ -61,8 +60,8 @@ function fecharMonitor() {
 const filtros = computed<Filtros>(() => {
   const hoje = hojeEmSalto();
   const dias = { hoje: 1, '7d': 7, '30d': 30, '90d': 90 } as const;
-  if (preset.value === 'custom') return { de: customDe.value, ate: customAte.value, bairro: bairro.value, demo: demo.value };
-  return { de: somaDias(hoje, 1 - dias[preset.value]), ate: hoje, bairro: bairro.value, demo: demo.value };
+  if (preset.value === 'custom') return { de: customDe.value, ate: customAte.value, bairro: bairro.value };
+  return { de: somaDias(hoje, 1 - dias[preset.value]), ate: hoje, bairro: bairro.value };
 });
 
 const periodoTexto = computed(() => {
@@ -171,7 +170,6 @@ function fimPdf() {
         <h1 class="ta-met__title">Relatório de falta d'água</h1>
         <p class="ta-met__sub">
           Salto/SP · {{ periodoTexto }} · {{ bairro ?? 'todos os bairros' }}
-          <template v-if="!demo"> · só relatos reais</template>
         </p>
       </div>
       <p class="ta-met__live" aria-live="polite">
@@ -206,7 +204,6 @@ function fimPdf() {
           <option v-for="b in bairros" :key="b" :value="b">{{ b }}</option>
         </select>
       </label>
-      <label class="ta-met__check"><input v-model="demo" type="checkbox" /> Incluir demonstração</label>
       <span class="ta-met__spacer"></span>
       <button type="button" class="ta-met__btn" @click="abrirMonitor">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -221,9 +218,6 @@ function fimPdf() {
     </div>
 
     <p v-if="erro" class="ta-met__alerta ta-met__alerta--erro" role="alert">{{ erro }}</p>
-    <p v-if="r?.temDemo && demo" class="ta-met__alerta">
-      Este período inclui <b>dados de demonstração</b>. Desmarque "Incluir demonstração" para ver só os relatos reais.
-    </p>
 
     <template v-if="m && r">
       <!-- ---- Indicadores ---- -->
@@ -402,7 +396,7 @@ function fimPdf() {
           </header>
           <div class="ta-met__tabela-wrap ta-met__tabela-wrap--alta">
             <table class="ta-met__tabela">
-              <thead><tr><th>Dia</th><th>Hora</th><th>Bairro</th><th>Status</th><th>Coordenadas</th><th>Origem</th></tr></thead>
+              <thead><tr><th>Dia</th><th>Hora</th><th>Bairro</th><th>Status</th><th>Coordenadas</th></tr></thead>
               <tbody>
                 <tr v-for="x in m.recentes" :key="x.id">
                   <td>{{ dataBr(x.dia) }}</td>
@@ -414,7 +408,6 @@ function fimPdf() {
                     </span>
                   </td>
                   <td class="ta-met__coord">{{ x.lat.toFixed(4) }}, {{ x.lng.toFixed(4) }}</td>
-                  <td>{{ x.origem === 'demo' ? 'demonstração' : 'app' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -429,9 +422,9 @@ function fimPdf() {
 
     <p v-else-if="!erro" class="ta-met__vazio">Carregando métricas…</p>
 
-    <Relatorio v-if="gerandoPdf && m" :m="m" :demo="demo" @pronto="imprimirRelatorio" />
+    <Relatorio v-if="gerandoPdf && m" :m="m" @pronto="imprimirRelatorio" />
     <p v-if="gerandoPdf" class="ta-met__preparando" role="status">Preparando o relatório em PDF…</p>
 
-    <MonitorMapa v-if="monitor" :demo="demo" :tela-cheia="monitorTelaCheia" @fechar="fecharMonitor" />
+    <MonitorMapa v-if="monitor" :tela-cheia="monitorTelaCheia" @fechar="fecharMonitor" />
   </div>
 </template>

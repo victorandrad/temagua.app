@@ -9,7 +9,7 @@ import { dataBr, dataHoraBr, horaBr, nf, variacao } from '../format';
 import EChart from './EChart.vue';
 import MapaImagem from './MapaImagem.vue';
 
-const props = defineProps<{ m: Metricas; demo: boolean }>();
+const props = defineProps<{ m: Metricas }>();
 const emit = defineEmits<{ pronto: [] }>();
 
 const r = computed(() => props.m.resumo);
@@ -97,14 +97,10 @@ onMounted(async () => {
       <dl class="ta-rel__meta">
         <div><dt>Período</dt><dd>{{ periodo }}</dd></div>
         <div><dt>Bairro</dt><dd>{{ f.bairro ?? 'Todos' }}</dd></div>
-        <div><dt>Dados</dt><dd>{{ demo ? 'Reais + demonstração' : 'Somente reais' }}</dd></div>
         <div><dt>Gerado em</dt><dd>{{ geradoEm }}</dd></div>
       </dl>
     </header>
 
-    <p v-if="r.temDemo && demo" class="ta-rel__aviso">
-      Atenção: este relatório inclui <b>dados de demonstração</b> (fictícios). Não use para decisões.
-    </p>
 
     <section class="ta-rel__secao">
       <h2 class="ta-rel__h2">Resumo</h2>
@@ -191,7 +187,7 @@ onMounted(async () => {
           <tr v-for="x in m.recentes.slice(0, 20)" :key="x.id">
             <td>{{ dataBr(x.dia) }}</td>
             <td>{{ horaBr(x.criadoEm) }}</td>
-            <td>{{ x.bairro }}<template v-if="x.origem === 'demo'"> *</template></td>
+            <td>{{ x.bairro }}</td>
             <td>
               <span class="ta-rel__status"><i :style="{ background: x.status === 'sem-agua' ? COR.semAgua : COR.voltou }"></i>{{ x.status === 'sem-agua' ? 'Sem água' : 'Água voltou' }}</span>
             </td>
@@ -200,7 +196,7 @@ onMounted(async () => {
         </tbody>
       </table>
       <p class="ta-rel__nota">
-        Mostrando os 20 mais recentes<template v-if="m.recentes.some((x) => x.origem === 'demo')"> (* = demonstração)</template>. A lista completa, com
+        Mostrando os 20 mais recentes. A lista completa, com
         dia, hora e coordenadas de cada relato, está no CSV exportado pelo painel.
       </p>
     </section>

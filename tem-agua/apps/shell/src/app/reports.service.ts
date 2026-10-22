@@ -1,8 +1,6 @@
 import { computed, effect, Injectable, signal } from '@angular/core';
 import {
-  BAIRROS,
   CABECALHO_APARELHO,
-  coarsen,
   emit,
   idDoAparelho,
   last,
@@ -21,8 +19,7 @@ const RECONNECT_MS = 5000;
 export type LiveStatus = 'connecting' | 'online' | 'offline';
 
 /**
- * Dono dos relatos. Junta três fontes e publica o resultado no barramento ('reports'):
- * - demonstração (fictícios, gerados no aparelho);
+ * Dono dos relatos. Junta duas fontes e publica o resultado no barramento ('reports'):
  * - servidor: relatos de todos os aparelhos, com posição arredondada, recebidos em tempo real (WebSocket);
  * - os deste aparelho, com posição exata, guardados no localStorage.
  *
@@ -32,7 +29,6 @@ export type LiveStatus = 'connecting' | 'online' | 'offline';
  */
 @Injectable({ providedIn: 'root' })
 export class ReportsService {
-  private readonly demo = demoReports();
   private readonly remote = signal<Report[]>([]);
   private readonly mine = signal<Report[]>(loadMine());
   readonly live = signal<LiveStatus>('connecting');
@@ -40,7 +36,7 @@ export class ReportsService {
   readonly reports = computed(() => {
     // O próprio relato também chega pelo servidor; aqui vale a versão local, com a posição exata.
     const mineIds = new Set(this.mine().map((r) => r.id));
-    return [...this.demo, ...this.remote().filter((r) => !mineIds.has(r.id)), ...this.mine()];
+    return [...this.remote().filter((r) => !mineIds.has(r.id)), ...this.mine()];
   });
 
   constructor() {
@@ -169,38 +165,3 @@ function saveMine(list: Report[]): void {
   }
 }
 
-/** Relatos fictícios, recalculados a cada carga para parecerem recentes. */
-function demoReports(): Report[] {
-  const clusters: Array<[bairro: string, semAgua: number, voltou: number]> = [
-    ['Jardim Nair Maria', 14, 0],
-    ['Residencial Santa Madre Paulina', 9, 1],
-    ['Jardim Monte Paschoal', 6, 0],
-    ['Vila Nova', 4, 3],
-    ['Jardim Santa Marta', 0, 3],
-    ['Jardim das Nações I', 3, 0],
-  ];
-
-  let seed = 42;
-  const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-  const now = Date.now();
-  const out: Report[] = [];
-
-  for (const [nome, semAgua, voltou] of clusters) {
-    const b = BAIRROS.find((x) => x.nome === nome);
-    if (!b) continue;
-    const add = (status: WaterStatus, maxAgeMin: number, minAgeMin: number) =>
-      out.push({
-        id: `demo-${out.length}`,
-        lng: coarsen(b.lng + (rand() - 0.5) * 0.008),
-        lat: coarsen(b.lat + (rand() - 0.5) * 0.008),
-        bairro: b.nome,
-        status,
-        createdAt: now - (minAgeMin + rand() * (maxAgeMin - minAgeMin)) * 60_000,
-        demo: true,
-      });
-    // "Sem água" mais antigos e "voltou" mais recentes, como num rodízio que acabou.
-    for (let i = 0; i < semAgua; i++) add('sem-agua', 300, 20);
-    for (let i = 0; i < voltou; i++) add('voltou', 15, 2);
-  }
-  return out;
-}

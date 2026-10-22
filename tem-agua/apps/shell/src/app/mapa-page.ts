@@ -57,9 +57,6 @@ function salvar(chave: string, valor: string): void {
             <span class="badge live" [class.online]="live() === 'online'">
               <i aria-hidden="true"></i>{{ live() === 'online' ? 'Ao vivo' : 'Reconectando…' }}
             </span>
-            @if (hasDemo) {
-              <span class="badge" title="Inclui relatos fictícios de demonstração">Demonstração</span>
-            }
             <button
               type="button"
               class="badge link toggle"
@@ -182,7 +179,6 @@ function salvar(chave: string, valor: string): void {
 })
 export class MapaPage {
   private readonly reports = inject(ReportsService);
-  protected readonly hasDemo = this.reports.reports().some((r) => r.demo);
   protected readonly live = this.reports.live;
   /** O painel de métricas só abre em tela grande: no celular o selo nem aparece. */
   protected readonly telaGrande = telaGrande();

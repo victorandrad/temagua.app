@@ -12,7 +12,6 @@ export interface Filtros {
   de: string;
   ate: string;
   bairro: string | null;
-  demo: boolean;
 }
 
 export interface Metricas {
@@ -23,7 +22,6 @@ export interface Metricas {
     /** Aparelhos diferentes que relataram falta (só os últimos 30 dias guardam o aparelho). */
     aparelhos: number;
     horaPico: number | null;
-    temDemo: boolean;
     anterior: Contagens & { de: string; ate: string };
     ultimaHora: Contagens;
   };
@@ -42,12 +40,11 @@ export interface Metricas {
     status: 'sem-agua' | 'voltou';
     lng: number;
     lat: number;
-    origem: 'app' | 'demo';
   }>;
 }
 
 export function query(f: Filtros): string {
-  const p = new URLSearchParams({ de: f.de, ate: f.ate, demo: f.demo ? '1' : '0' });
+  const p = new URLSearchParams({ de: f.de, ate: f.ate });
   if (f.bairro) p.set('bairro', f.bairro);
   return p.toString();
 }
@@ -78,8 +75,8 @@ export interface RelatoMonitor {
 }
 
 /** Relatos das últimas `horas` horas, para o modo monitoramento. */
-export async function fetchMonitor(horas: number, demo: boolean, signal?: AbortSignal): Promise<RelatoMonitor[]> {
-  const res = await fetch(`/api/monitor?horas=${horas}&demo=${demo ? '1' : '0'}`, { signal });
+export async function fetchMonitor(horas: number, signal?: AbortSignal): Promise<RelatoMonitor[]> {
+  const res = await fetch(`/api/monitor?horas=${horas}`, { signal });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error ?? 'Não foi possível carregar o monitoramento.');
   return body.relatos as RelatoMonitor[];

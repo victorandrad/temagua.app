@@ -16,7 +16,7 @@ import FiltroSetores from './FiltroSetores.vue';
 
 setWorkerUrl(new URL(workerUrl, import.meta.url).href);
 
-const props = defineProps<{ demo: boolean; telaCheia: boolean }>();
+const props = defineProps<{ telaCheia: boolean }>();
 const emit = defineEmits<{ fechar: [] }>();
 
 const JANELAS = [1, 6, 24] as const;
@@ -69,7 +69,8 @@ const rotuloSetores = computed(() => {
 function aplicarSetores(enquadrar: boolean) {
   if (map && carregado) {
     mostrarSetores(map, setoresLigados.value, setoresSel.value);
-    if (enquadrar && filtrando.value && setoresSel.value!.length) enquadrarSetores(map, setoresSel.value!);
+    // "Todos" volta a enquadrar a cidade inteira (senão o mapa ficava preso no último setor escolhido).
+    if (enquadrar && setoresLigados.value && setoresSel.value?.length !== 0) enquadrarSetores(map, setoresSel.value);
   }
   try {
     localStorage.setItem(CHAVE_SETORES, JSON.stringify({ ligado: setoresLigados.value, setores: setoresSel.value }));
@@ -152,7 +153,7 @@ async function carregar() {
   controller?.abort();
   controller = new AbortController();
   try {
-    const lista = await fetchMonitor(janela.value, props.demo, controller.signal);
+    const lista = await fetchMonitor(janela.value, controller.signal);
     // Só pisca o que chegou de fato agora: nunca na primeira carga nem ao trocar a janela/filtro, e só
     // relatos criados depois da carga anterior (ampliar a janela traz relatos antigos "inéditos").
     const desde = (atualizadoEm.value ?? Date.now()) - 15_000;
@@ -175,7 +176,6 @@ function recarregarSemPulsos() {
   carregar();
 }
 watch(janela, recarregarSemPulsos);
-watch(() => props.demo, recarregarSemPulsos);
 
 // ---- Tela cheia, teclado, cursor e tela sempre acesa ----
 
@@ -488,10 +488,13 @@ onBeforeUnmount(() => {
         <template v-if="setoresLigados">
           <p class="ta-mon__legenda-nota"><span class="ta-mon__chave-setor"></span>Setor de abastecimento (uma cor por setor)</p>
           <p class="ta-mon__legenda-nota">
+            <span class="ta-mon__chave-item"><span class="ta-mon__chave-reservatorio"></span>reservatório</span>
+            <span class="ta-mon__chave-item"><span class="ta-mon__chave-reservatorio is-booster"></span>booster</span>
+          </p>
+          <p class="ta-mon__legenda-nota">
             Fonte: mapa <a :href="ABASTECIMENTO.fonte.url" target="_blank" rel="noopener">{{ ABASTECIMENTO.fonte.titulo }}</a>
           </p>
         </template>
-        <p v-if="demo" class="ta-mon__legenda-nota">Inclui dados de demonstração.</p>
       </div>
 
       <p v-if="erro" class="ta-mon__erro" role="alert">{{ erro }} Tentando de novo…</p>

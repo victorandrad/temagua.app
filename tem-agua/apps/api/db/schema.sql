@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS relatos (
   -- Posição pública (já arredondada para ~11 m pelo app e pela API).
   lng        double precision NOT NULL,
   lat        double precision NOT NULL,
-  -- 'app' = relato real; 'demo' = dados de demonstração (npm run db:seed).
-  origem     text NOT NULL DEFAULT 'app' CHECK (origem IN ('app', 'demo')),
+  -- 'app' = relato feito no app (único valor hoje; a coluna fica para outras fontes no futuro).
+  origem     text NOT NULL DEFAULT 'app' CHECK (origem IN ('app')),
   criado_em  timestamptz NOT NULL DEFAULT now(),
 
   -- Colunas derivadas para relatórios: ponto geográfico e dia/hora no fuso de Salto.
@@ -52,3 +52,10 @@ CREATE TABLE IF NOT EXISTS areas_abastecimento (
   geom     geometry(Geometry, 4326) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS areas_abastecimento_geom_idx ON areas_abastecimento USING gist (geom);
+
+-- ---- Sem dados de demonstração ----
+-- O projeto teve relatos fictícios (origem = 'demo'); apaga os que sobraram em bancos antigos e
+-- deixa a coluna aceitar só 'app'.
+DELETE FROM relatos WHERE origem <> 'app';
+ALTER TABLE relatos DROP CONSTRAINT IF EXISTS relatos_origem_check;
+ALTER TABLE relatos ADD CONSTRAINT relatos_origem_check CHECK (origem IN ('app'));

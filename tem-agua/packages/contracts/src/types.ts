@@ -11,7 +11,6 @@ export interface Report {
   confirmedAt?: number | null;
   /** Quando o relato foi encerrado: o aparelho que avisou mandou o status oposto. */
   closedAt?: number | null;
-  demo?: boolean;
   /** Relato feito neste aparelho (guarda a posição exata, que nunca sai daqui). */
   mine?: boolean;
   /** Para relatos deste aparelho: se o servidor já recebeu. */

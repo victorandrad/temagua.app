@@ -41,7 +41,7 @@ const ABERTO = `encerrado_em IS NULL AND coalesce(confirmado_em, criado_em) > no
 
 /**
  * Relatos reais das últimas `horas` horas (padrão 24, máx. 168 = 7 dias), para o mapa ao vivo e o
- * ranking de bairros da home. A demonstração do mapa é gerada no app.
+ * ranking de bairros da home.
  */
 export async function recentReports(horas = 24) {
   const { rows } = await pool.query(

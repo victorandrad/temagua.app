@@ -1,5 +1,5 @@
 // Consultas do painel de métricas e do relatório CSV.
-// Filtros (query string): de, ate (AAAA-MM-DD, inclusive, no fuso de Salto), bairro, demo=0|1.
+// Filtros (query string): de, ate (AAAA-MM-DD, inclusive, no fuso de Salto), bairro.
 
 import { pool } from './db.mjs';
 
@@ -40,7 +40,7 @@ export function parseFiltros(params) {
   if (dias > MAX_DIAS) throw new Error(`Período máximo de ${MAX_DIAS} dias.`);
   const bairro = params.get('bairro')?.trim() || null;
   if (bairro && bairro.length > 80) throw new Error('Bairro inválido.');
-  return { de, ate, dias, bairro, demo: params.get('demo') !== '0' };
+  return { de, ate, dias, bairro };
 }
 
 /** WHERE comum a todas as consultas. `dataCols` = false ignora o período (ex.: "última hora"). */
@@ -55,7 +55,7 @@ function where(f, { periodo = true, de = f.de, ate = f.ate } = {}) {
     vals.push(f.bairro);
     conds.push(`bairro = $${vals.length}`);
   }
-  if (!f.demo) conds.push(`origem = 'app'`);
+  conds.push(`origem = 'app'`);
   return { sql: conds.length ? `WHERE ${conds.join(' AND ')}` : '', vals };
 }
 
@@ -77,8 +77,7 @@ async function resumo(f) {
          count(DISTINCT bairro) FILTER (WHERE status = 'sem-agua')::int AS "bairrosAfetados",
          -- Aparelhos diferentes que relataram falta (o vínculo some após 30 dias: períodos antigos contam menos).
          count(DISTINCT aparelho) FILTER (WHERE status = 'sem-agua')::int AS aparelhos,
-         mode() WITHIN GROUP (ORDER BY hora) FILTER (WHERE status = 'sem-agua') AS "horaPico",
-         bool_or(origem = 'demo') AS "temDemo"
+         mode() WITHIN GROUP (ORDER BY hora) FILTER (WHERE status = 'sem-agua') AS "horaPico"
        FROM relatos ${atual.sql}`,
       atual.vals,
     ),
@@ -90,7 +89,6 @@ async function resumo(f) {
   ]);
   return {
     ...a.rows[0],
-    temDemo: Boolean(a.rows[0].temDemo),
     anterior: { de: anteriorDe, ate: anteriorAte, ...p.rows[0] },
     ultimaHora: h.rows[0],
   };
@@ -196,7 +194,7 @@ async function pontos(f) {
 async function recentes(f) {
   const w = where(f);
   const { rows } = await pool.query(
-    `SELECT id, to_char(dia, 'YYYY-MM-DD') AS dia, hora, criado_em AS "criadoEm", bairro, status, lng, lat, origem
+    `SELECT id, to_char(dia, 'YYYY-MM-DD') AS dia, hora, criado_em AS "criadoEm", bairro, status, lng, lat
        FROM relatos ${w.sql}
       ORDER BY criado_em DESC
       LIMIT 50`,
@@ -221,16 +219,15 @@ export async function metricas(f) {
 
 /**
  * Modo monitoramento: relatos individuais das últimas N horas (1–72), com posição e horário,
- * para o mapa de calor em tempo real. `demo=0` deixa só os reais.
+ * para o mapa de calor em tempo real.
  */
 export async function monitor(params) {
   const horas = Number(params.get('horas') ?? 6);
   if (!Number.isInteger(horas) || horas < 1 || horas > 72) throw new Error('Janela entre 1 e 72 horas.');
-  const demo = params.get('demo') !== '0';
   const { rows } = await pool.query(
     `SELECT id, lng, lat, bairro, status, floor(extract(epoch FROM criado_em) * 1000)::float8 AS "createdAt"
        FROM relatos
-      WHERE criado_em > now() - make_interval(hours => $1) ${demo ? '' : `AND origem = 'app'`}
+      WHERE origem = 'app' AND criado_em > now() - make_interval(hours => $1)
       ORDER BY criado_em
       LIMIT 10000`,
     [horas],
@@ -250,7 +247,7 @@ export async function relatoriosCsv(f) {
   const { rows } = await pool.query(
     `SELECT to_char(dia, 'DD/MM/YYYY') AS dia, hora,
             to_char(criado_em AT TIME ZONE '${TZ}', 'DD/MM/YYYY HH24:MI:SS') AS data_hora,
-            bairro, status, lat, lng, origem
+            bairro, status, lat, lng
        FROM relatos ${w.sql}
       ORDER BY criado_em`,
     w.vals,
@@ -259,7 +256,7 @@ export async function relatoriosCsv(f) {
     const s = String(v ?? '');
     return /[";\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
   };
-  const header = ['dia', 'hora', 'data_hora', 'bairro', 'status', 'latitude', 'longitude', 'origem'];
-  const lines = rows.map((r) => [r.dia, r.hora, r.data_hora, r.bairro, r.status, r.lat, r.lng, r.origem].map(esc).join(';'));
+  const header = ['dia', 'hora', 'data_hora', 'bairro', 'status', 'latitude', 'longitude'];
+  const lines = rows.map((r) => [r.dia, r.hora, r.data_hora, r.bairro, r.status, r.lat, r.lng].map(esc).join(';'));
   return BOM + [header.join(';'), ...lines].join('\r\n') + '\r\n';
 }

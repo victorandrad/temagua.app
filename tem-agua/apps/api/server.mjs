@@ -4,12 +4,12 @@
 //   POST /api/reports              → relato { id, lng, lat, bairro, status } + cabeçalho X-Aparelho (opcional)
 //                                    → { report, encerrados } (um relato ativo por aparelho, ver registrarRelato)
 //   WS   /api/ws                   → { type: 'report', report } a cada relato novo, renovado ou encerrado
-//   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro, demo)
+//   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro)
 //   GET  /api/metricas/bairros     → bairros com relatos (para o filtro)
 //   GET  /bairros, /bairros/<slug> → páginas HTML para o Google (situação por bairro, só relatos reais)
 //   GET  /sitemap.xml, /robots.txt → indexação
 //   GET  /api/geocode?q=           → autocompletar de endereços de Salto (proxy com cache para o Photon/OSM)
-//   GET  /api/monitor              → relatos das últimas N horas (horas=1..72, demo) para o modo monitoramento
+//   GET  /api/monitor              → relatos das últimas N horas (horas=1..72) para o modo monitoramento
 //   GET  /api/relatorios/relatos.csv → relatório em CSV com os mesmos filtros
 //
 // No dev, o shell (Angular) repassa /api para cá via proxy.conf.json; no Docker, o Nginx.
@@ -281,5 +281,6 @@ const esquecer = () =>
     .catch((err) => console.error('[api] falha ao apagar vínculos de aparelho', err));
 await esquecer();
 setInterval(esquecer, 60 * 60 * 1000).unref();
+
 const { rows } = await pool.query(`SELECT count(*)::int AS n FROM relatos`);
 server.listen(PORT, () => console.log(`[api] ouvindo em http://localhost:${PORT} · ${rows[0].n} relatos no banco`));

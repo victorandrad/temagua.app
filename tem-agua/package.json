@@ -14,8 +14,6 @@
     "stop": "node scripts/stop.mjs",
     "build": "npm run build -w apps/mapa && npm run build -w apps/painel && npm run build -w apps/metricas && npm run build -w apps/shell",
     "typecheck": "npm run typecheck -w apps/mapa && npm run typecheck -w apps/painel && npm run typecheck -w apps/metricas",
-    "db:seed": "node apps/api/seed.mjs",
-    "db:limpar-demo": "node apps/api/seed.mjs --limpar",
     "abastecimento:importar": "node scripts/importar-abastecimento.mjs",
     "db:psql": "docker compose -f ../compose.yaml exec db psql -U temagua -d temagua"
   },
