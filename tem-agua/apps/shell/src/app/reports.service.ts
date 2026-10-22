@@ -108,8 +108,18 @@ export class ReportsService {
   private async refresh(): Promise<void> {
     try {
       // 7 dias: o mapa mostra 12 h, mas o ranking de bairros da home tem filtro de até 7 dias.
+      const pedidoEm = Date.now();
       const res = await fetch(`${API}/reports?horas=168`);
-      if (res.ok) this.remote.set((await res.json()) as Report[]);
+      if (!res.ok) return;
+      const lista = (await res.json()) as Report[];
+      this.remote.set(lista);
+      // O servidor manda: relato deste aparelho que ele já tinha recebido (synced) e não devolve mais
+      // foi apagado lá (limpeza, moderação) e sai daqui também. Pendentes ficam para reenvio; e o que
+      // foi enviado durante este pedido pode ainda não ter vindo na lista (margem de 5 s).
+      const noServidor = new Set(lista.map((r) => r.id));
+      this.mine.update((list) =>
+        list.filter((r) => !r.synced || noServidor.has(r.id) || (r.confirmedAt ?? r.createdAt) > pedidoEm - 5000),
+      );
     } catch {
       // Sem rede: fica com o que já tem; o próximo 'open' tenta de novo.
     }
