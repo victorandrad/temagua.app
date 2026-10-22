@@ -9,6 +9,9 @@ Seus vizinhos veem na hora — e você descobre se o problema é só na sua casa
 
 ### 👉 [saltotemagua.victorandra.de](https://saltotemagua.victorandra.de)
 
+[![Backend](https://github.com/victorandrad/temagua.app/actions/workflows/backend.yml/badge.svg?branch=main)](https://github.com/victorandrad/temagua.app/actions/workflows/backend.yml)
+[![Frontend](https://github.com/victorandrad/temagua.app/actions/workflows/frontend.yml/badge.svg?branch=main)](https://github.com/victorandrad/temagua.app/actions/workflows/frontend.yml)
+
 ![Angular](https://img.shields.io/badge/Angular_21-shell-DD0031?logo=angular&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-mapa-61DAFB?logo=react&logoColor=black)
 ![Vue](https://img.shields.io/badge/Vue_3-painel_e_métricas-4FC08D?logo=vuedotjs&logoColor=white)
