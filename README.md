@@ -177,7 +177,6 @@ Abra **http://localhost:4200**. O primeiro `npm run dev` instala as dependência
 | `npm run dev:ngrok` | O mesmo **+ link HTTPS público** para abrir no celular, com GPS — [como configurar](tem-agua/README.md#testar-no-celular-com-gps) |
 | `npm run dev:tunnel` | O mesmo com cloudflared, sem precisar de conta |
 | `npm run stop` | Derruba tudo |
-| `npm run db:seed` | Preenche as métricas com 30 dias de dados de demonstração (`db:limpar-demo` apaga) |
 | `npm run abastecimento:importar` | Baixa de novo o mapa de reservatórios e atualiza os setores |
 | `npm run docker:up` / `docker:down` | Sobe/para a versão Docker (`docker:ngrok` e `docker:tunnel` incluem o link público) |
 

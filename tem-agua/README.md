@@ -24,8 +24,6 @@ Requer Node 20.19+ e **Docker** (o banco de dados roda num container, mesmo no `
 | `npm run dev:ngrok` | O mesmo + túnel HTTPS do **ngrok**, com o link público em destaque (para o celular/GPS) |
 | `npm run dev:tunnel` | O mesmo, mas com o túnel do **cloudflared** (sem conta) |
 | `npm run stop` | Derruba tudo que os comandos acima subiram (inclusive o túnel e o container do banco; os dados ficam) |
-| `npm run db:seed` | Gera 30 dias de relatos de **demonstração** para o painel (`origem = 'demo'`, nunca se misturam aos reais) |
-| `npm run db:limpar-demo` | Apaga só a demonstração |
 | `npm run db:psql` | Abre o `psql` no banco |
 
 No Windows também dá para dar dois cliques em `iniciar.cmd` (usa o ngrok) / `parar.cmd`, na raiz `nova-startup`.
@@ -79,7 +77,7 @@ Isso funciona porque o shell serve tudo pela mesma origem: o `proxy.conf.json` d
 - **Pin**: dá para arrastar o mapa (o pin fica fixo no centro) **ou** o próprio pin. Ao soltar o pin, o mapa desliza até o ponto escolhido e o pin volta ao centro na mesma animação.
 - **Privacidade (LGPD)**: a posição exata fica só no aparelho, para o ponto aparecer onde o pin estava. O que vai para o servidor passa por `toPublicReport()` e é arredondado de novo na API, para ~11 m (`PUBLIC_DECIMALS = 4`). Com ~110 m (3 casas) o ponto ficava ~90 px deslocado entre aparelhos.
 - **Bairros**: 91 centroides aproximados extraídos do OpenStreetMap (`packages/contracts/src/bairros.json`, fonte única para o front e a API).
-- **Tempo real**: um relato feito em qualquer aparelho aparece nos outros em ~1 s. O `ReportsService` (shell) junta três fontes: relatos de demonstração, os do servidor (posição arredondada) e os deste aparelho (posição exata, no `localStorage`). Se a conexão cair, o indicador vira "Reconectando…", o relato fica pendente e é reenviado ao reconectar.
+- **Tempo real**: um relato feito em qualquer aparelho aparece nos outros em ~1 s. O `ReportsService` (shell) junta duas fontes: os relatos do servidor (posição arredondada) e os deste aparelho (posição exata, no `localStorage`). Se a conexão cair, o indicador vira "Reconectando…", o relato fica pendente e é reenviado ao reconectar.
 - **Por que WebSocket e não SSE**: os Quick Tunnels da Cloudflare (`trycloudflare.com`) seguram streams de Server-Sent Events; WebSocket passa normalmente.
 - **API**: valida os dados, aceita só posições dentro de Salto, arredonda a posição no servidor (nunca guarda a exata), limita relatos por minuto (10 por aparelho, 30 por IP) e ignora relatos repetidos (mesmo `id`). Grava no PostgreSQL + PostGIS (ver abaixo).
 - **Duração do relato**: 12 h no mapa desde a última confirmação, com o peso caindo pela metade a cada 3 h. O rodízio de Salto é de 24 h com e 24 h sem água: com 24 h, a falta de ontem aparecia no dia em que a água volta. Depois de 4 h, quem avisou vê "Ainda sem água?" e pode renovar ou encerrar.
@@ -94,11 +92,11 @@ Isso funciona porque o shell serve tudo pela mesma origem: o `proxy.conf.json` d
 
 Cada relato é uma linha da tabela `relatos` (`apps/api/db/schema.sql`, aplicado pela API ao subir): `id`, `status`, `bairro`, `lat`/`lng` (já arredondados para ~11 m), `origem` e `criado_em`, mais colunas calculadas pelo próprio PostgreSQL — **`dia`** e **`hora`** no fuso de Salto e **`geom`** (ponto PostGIS, com índice espacial).
 
-O painel em **`/metricas`** consulta `GET /api/metricas?de=AAAA-MM-DD&ate=AAAA-MM-DD&bairro=...&demo=0|1` (uma resposta com tudo) e se atualiza sozinho quando chega um relato novo. "Exportar CSV" baixa `/api/relatorios/relatos.csv` com os mesmos filtros (dia, hora, data/hora, bairro, status, latitude, longitude; separador `;` para o Excel em português). "Imprimir / PDF" gera o relatório pelo navegador, sem os controles.
+O painel em **`/metricas`** consulta `GET /api/metricas?de=AAAA-MM-DD&ate=AAAA-MM-DD&bairro=...` (uma resposta com tudo) e se atualiza sozinho quando chega um relato novo. "Exportar CSV" baixa `/api/relatorios/relatos.csv` com os mesmos filtros (dia, hora, data/hora, bairro, status, latitude, longitude; separador `;` para o Excel em português). "Imprimir / PDF" gera o relatório pelo navegador, sem os controles.
 
 **Modo monitoramento:** o botão "Monitoramento" (ou o link direto `/metricas?modo=monitor`, para deixar numa TV) mostra só o mapa de calor da falta d'água em tela cheia, atualizando em tempo real: cada relato novo pisca no mapa no instante em que chega, os mais antigos esfriam com o tempo e dá para escolher a janela (1 h, 6 h ou 24 h). A tela não apaga sozinha, o cursor some quando parado e Esc sai.
 
-Para ver o painel com dados antes de ter relatos reais: `npm run db:seed`. O painel avisa quando o período inclui demonstração e permite desligá-la.
+O projeto não tem dados de demonstração: o mapa, o ranking, as métricas e o monitoramento mostram só relatos reais feitos no app.
 
 ## Setores de abastecimento (reservatórios)
 
@@ -123,7 +121,7 @@ O app é uma SPA (microfrontends carregados por JavaScript), então a API també
 | `/sitemap.xml` | Home, métricas, índice e todas as páginas de bairro (com `lastmod` do último relato) |
 | `/robots.txt` | Libera o site; bloqueia CSV, autocompletar e o modo TV; aponta o sitemap |
 
-- As páginas usam **só relatos reais** — a demonstração nunca aparece para o Google.
+- As páginas usam os relatos reais do app.
 - A home tem título/descrição de busca, `canonical`, Open Graph com imagem (`icons/og.png`, para links no WhatsApp/redes), JSON-LD (`WebApplication`) e conteúdo em `<noscript>`.
 - `/?bairro=<bairro>` abre o mapa direto no bairro (é o destino dos botões das páginas de bairro).
 
