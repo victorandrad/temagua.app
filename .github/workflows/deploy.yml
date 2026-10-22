@@ -1,0 +1,83 @@
+# Deploy do Tem Água? no VPS da Hostinger a cada push no main (ou manual, em Actions → Run workflow).
+#
+# 1. "Verificar": typecheck dos remotos e build do shell nos servidores do GitHub.
+# 2. "Deploy": SSH no VPS com a chave do secret VPS_SSH_KEY, que no servidor só pode rodar
+#    /usr/local/bin/tem-agua-deploy (tem-agua/docker/deploy-vps.sh): git pull + docker compose up --build.
+#    Sem o secret, o deploy é pulado com um aviso.
+name: Deploy no VPS
+
+on:
+  push:
+    branches: [main]
+    # Mudança só de documentação não precisa de deploy.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+# Um deploy por vez; um push novo espera o anterior terminar em vez de cancelá-lo no meio.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VPS_HOST: 177.7.36.12
+  # Chave pública do servidor (a mesma de ssh-keyscan): impede conectar num servidor falso.
+  VPS_HOST_KEY: '177.7.36.12 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBsChjHuKY4GumYOg5hT3UOu3kAYm1HC1w44iX/Wia/6'
+  SITE: https://saltotemagua.victorandra.de
+
+jobs:
+  verificar:
+    name: Verificar (typecheck e build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tem-agua
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tem-agua/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Build do shell (o typecheck não cobre o Angular)
+        run: npx ng build
+        working-directory: tem-agua/apps/shell
+
+  deploy:
+    name: Deploy
+    needs: verificar
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: producao
+      url: ${{ env.SITE }}
+    steps:
+      - name: Deploy por SSH
+        id: deploy
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "::warning::Secret VPS_SSH_KEY não configurado: deploy pulado."
+            exit 0
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          # O servidor ignora o comando pedido e roda só o deploy (restrict,command=...).
+          ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$VPS_HOST"
+          echo "feito=true" >> "$GITHUB_OUTPUT"
+
+      - name: Conferir o site
+        if: steps.deploy.outputs.feito == 'true'
+        run: |
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors -o /dev/null -w "home %{http_code}\n" "$SITE/"
+          curl -fsS --retry 3 --retry-delay 5 -o /dev/null -w "api %{http_code}\n" "$SITE/api/reports?horas=1"

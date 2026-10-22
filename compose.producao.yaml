@@ -1,0 +1,18 @@
+# Produção no VPS, atrás do Traefik do servidor (HTTPS automático com Let's Encrypt).
+#
+#   docker compose -f compose.yaml -f compose.producao.yaml up -d --build
+#
+# Variáveis em .env (fora do git): DOMINIO, SITE_URL, POSTGRES_PASSWORD, APARELHO_SEGREDO.
+# Nenhuma porta aberta no servidor: só o Traefik chega ao web, pela rede tem-agua_default.
+services:
+  db:
+    ports: !reset []
+  web:
+    ports: !reset []
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: tem-agua_default
+      traefik.http.routers.tem-agua.rule: Host(`${DOMINIO}`)
+      traefik.http.routers.tem-agua.entrypoints: websecure
+      traefik.http.routers.tem-agua.tls.certresolver: letsencrypt
+      traefik.http.services.tem-agua.loadbalancer.server.port: "80"
