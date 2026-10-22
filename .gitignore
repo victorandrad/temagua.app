@@ -15,3 +15,6 @@ tem-agua/apps/api/data/
 
 # Config local do Claude Code
 .claude/
+
+# Material de divulgação (Instagram, vídeos de demonstração): fica só local
+marketing/
