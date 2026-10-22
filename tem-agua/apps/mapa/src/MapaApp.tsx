@@ -86,6 +86,13 @@ export function MapaApp() {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Antes do efeito do mapa, que o usa (clique num reservatório): só mexe em estado e ref.
+  const showToast = (message: string) => {
+    setToast(message);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 5000);
+  };
+
   useEffect(() => {
     const map = new MlMap({
       container: containerRef.current!,
@@ -248,12 +255,6 @@ export function MapaApp() {
     };
   }, []);
 
-  const showToast = (message: string) => {
-    setToast(message);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 5000);
-  };
-
   const locate = () => {
     // O navegador só libera o GPS em HTTPS (ou localhost).
     if (!window.isSecureContext || !navigator.geolocation) {
@@ -283,7 +284,10 @@ export function MapaApp() {
     );
   };
 
-  locateRef.current = locate;
+  // O evento "locate" (assinado uma vez no efeito do mapa) chama sempre a versão mais recente.
+  useEffect(() => {
+    locateRef.current = locate;
+  });
 
   // ---- Arrastar o próprio pin ----
   // Ao soltar, o mapa desliza até o ponto onde o pin caiu e o pin volta ao centro na mesma

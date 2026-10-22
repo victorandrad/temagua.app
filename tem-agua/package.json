@@ -14,11 +14,21 @@
     "stop": "node scripts/stop.mjs",
     "build": "npm run build -w apps/mapa && npm run build -w apps/painel && npm run build -w apps/metricas && npm run build -w apps/shell",
     "typecheck": "npm run typecheck -w apps/mapa && npm run typecheck -w apps/painel && npm run typecheck -w apps/metricas",
+    "lint": "eslint .",
+    "lint:backend": "eslint apps/api",
+    "lint:frontend": "eslint apps/shell apps/mapa apps/painel apps/metricas packages/contracts",
     "abastecimento:importar": "node scripts/importar-abastecimento.mjs",
     "db:psql": "docker compose -f ../compose.yaml exec db psql -U temagua -d temagua"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@ngrok/ngrok": "^1.7.0",
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-vue": "^10.11.1",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.72.0",
+    "vue-eslint-parser": "^10.4.1"
   }
 }

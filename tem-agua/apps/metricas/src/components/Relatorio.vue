@@ -4,7 +4,7 @@
 
 import { computed, nextTick, onMounted, ref } from 'vue';
 import type { Metricas } from '../api';
-import { COR, opcaoBairros, opcaoHeatmap, opcaoSerie, rotuloSerie, type Option } from '../charts';
+import { COR, opcaoBairros, opcaoHeatmap, opcaoSerie, type Option } from '../charts';
 import { dataBr, dataHoraBr, horaBr, nf, variacao } from '../format';
 import EChart from './EChart.vue';
 import MapaImagem from './MapaImagem.vue';
