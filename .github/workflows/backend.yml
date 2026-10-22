@@ -56,6 +56,10 @@ jobs:
   code-analyzing:
     name: code-analyzing
     needs: security
+    # issues: write para o sonarqube-check abrir as issues da análise.
+    permissions:
+      contents: read
+      issues: write
     uses: ./.github/workflows/etapa-code-analyzing.yml
     with:
       parte: backend
