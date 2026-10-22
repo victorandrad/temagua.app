@@ -17,6 +17,7 @@ Seus vizinhos veem na hora — e você descobre se o problema é só na sua casa
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-PostGIS-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/status-protótipo-orange)
+![Licença](https://img.shields.io/badge/licença-AGPL--3.0-blue)
 
 [O problema](#-o-problema) ·
 [Como funciona](#-como-funciona) ·
@@ -24,7 +25,8 @@ Seus vizinhos veem na hora — e você descobre se o problema é só na sua casa
 [Reservatórios](#️-reservatórios-por-região) ·
 [Rodar](#-rode-em-1-minuto) ·
 [Arquitetura](#-por-dentro-três-frameworks-um-app) ·
-[Documentação](#-documentação)
+[Documentação](#-documentação) ·
+[Licença](#-licença)
 
 <br/>
 
@@ -249,6 +251,18 @@ Cada remoto expõe só uma função — `mount(elemento) → desmontar` — ent�
 | Arquitetura, banco, Docker, SEO e deploy em detalhe | [`tem-agua/README.md`](tem-agua/README.md) |
 | Trabalhar no código com IA (Claude Code, Codex, Cursor…) | [`AGENTS.md`](AGENTS.md) |
 | Entender por que este produto existe | [`pesquisa-problemas-salto.md`](pesquisa-problemas-salto.md) |
+
+## 📜 Licença
+
+Iniciativa independente e **sem fins lucrativos** de moradores de Salto/SP — sem ligação com o SAAE.
+
+O código é aberto sob a [GNU AGPL-3.0](LICENSE) (ou versão posterior). Na prática:
+
+- ✅ pode estudar, usar, modificar e colocar no ar a sua versão (para outra cidade, por exemplo);
+- 📢 quem colocar uma versão no ar — mesmo só como site — **tem de publicar o código dela sob a mesma licença** e manter os créditos e o aviso de copyright;
+- 🚫 não dá para pegar o projeto, fechar o código e apresentá-lo como se fosse outro.
+
+Copyright © 2026 Victor Andrade. Os relatos enviados pelos moradores ficam no servidor do projeto e não fazem parte deste repositório.
 
 ---
 

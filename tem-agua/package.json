@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Mapa colaborativo de falta d'água em Salto/SP — microfrontends Angular + React + Vue com Module Federation",
+  "license": "AGPL-3.0-or-later",
   "workspaces": [
     "packages/*",
     "apps/*"
