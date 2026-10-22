@@ -48,6 +48,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      issues: write
     uses: ./.github/workflows/etapa-security.yml
 
   code-analyzing:
