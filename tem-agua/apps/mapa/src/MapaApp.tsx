@@ -78,6 +78,7 @@ export function MapaApp() {
   const [bairro, setBairro] = useState('');
   const [padding, setPadding] = useState<MapPadding>(NO_PADDING);
   const [locating, setLocating] = useState(false);
+  const [zoom, setZoom] = useState({ noMinimo: false, noMaximo: false });
   const [dragging, setDragging] = useState(false);
   const [drag, setDrag] = useState({ dx: 0, dy: 0, snapping: false });
   const dragStart = useRef<{ x: number; y: number } | null>(null);
@@ -121,6 +122,13 @@ export function MapaApp() {
       destacarSetor(map, abast?.setor.id ?? null);
       emit('center', { lng: c.lng, lat: c.lat, bairro: b.nome, setor: abast?.setor.id ?? null, area: abast?.area.nome ?? null, distanciaArea: abast ? Math.round(abast.distancia) : null });
     };
+
+    // Botões de zoom desativados nos limites (minZoom/maxZoom).
+    const atualizarZoom = () => {
+      const z = map.getZoom();
+      setZoom({ noMinimo: z <= map.getMinZoom() + 0.01, noMaximo: z >= map.getMaxZoom() - 0.01 });
+    };
+    map.on('zoomend', atualizarZoom);
 
     map.on('movestart', () => setMoving(true));
     map.on('moveend', () => {
@@ -369,6 +377,32 @@ export function MapaApp() {
           {toast}
         </div>
       )}
+
+      {/* Zoom em volta do centro do mapa, que é a posição do pin: ele não sai do lugar. */}
+      <div className="ta-zoom" role="group" aria-label="Zoom do mapa" style={{ bottom: padding.bottom + 16 + 44 + 12 }}>
+        <button
+          type="button"
+          className="ta-zoom__btn"
+          onClick={() => mapRef.current?.zoomIn({ duration: 250 })}
+          disabled={zoom.noMaximo}
+          aria-label="Aproximar"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="ta-zoom__btn"
+          onClick={() => mapRef.current?.zoomOut({ duration: 250 })}
+          disabled={zoom.noMinimo}
+          aria-label="Afastar"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
 
       <button
         type="button"
