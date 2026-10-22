@@ -10,9 +10,12 @@
 services:
   db:
     ports: !reset []
+  # Sem build em produção: o VPS não tem o código (só .env e os dois arquivos de compose).
   api:
+    build: !reset null
     image: ghcr.io/victorandrad/temagua-api:${API_TAG:-latest}
   web:
+    build: !reset null
     image: ghcr.io/victorandrad/temagua-web:${WEB_TAG:-latest}
     ports: !reset []
     labels:

@@ -2,9 +2,10 @@
 #
 # SSH com a chave do secret VPS_SSH_KEY. No servidor essa chave só pode rodar
 # /usr/local/bin/tem-agua-deploy (tem-agua/docker/deploy-vps.sh), que recebe "backend <commit>" ou
-# "frontend <commit>", baixa a imagem já construída no job Build (ghcr.io) e troca só aquele container.
-# O token do registro vai pela entrada do SSH: é o GITHUB_TOKEN deste job (packages: read), que expira
-# no fim dele. Sem o secret VPS_SSH_KEY, o deploy é pulado com um aviso.
+# "frontend <commit>", baixa a imagem já construída na etapa build-image (ghcr.io) e troca só aquele
+# container. O VPS não tem o código: pela entrada do SSH vão o token do registro (o GITHUB_TOKEN deste
+# job, packages: read, que expira no fim dele) e os dois arquivos de compose do commit (tar.gz em base64).
+# Sem o secret VPS_SSH_KEY, o deploy é pulado com um aviso.
 name: Deploy no VPS
 
 on:
@@ -37,6 +38,12 @@ jobs:
       name: producao
       url: https://saltotemagua.victorandra.de
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            compose.yaml
+            compose.producao.yaml
+          sparse-checkout-cone-mode: false
       - name: Deploy por SSH
         id: deploy
         env:
@@ -54,7 +61,7 @@ jobs:
           chmod 600 ~/.ssh/deploy
           printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
           # O servidor só aceita "<backend|frontend|tudo> [commit]" (restrict,command=...).
-          printf '%s\n' "$REGISTRO_TOKEN" |
+          { printf '%s\n' "$REGISTRO_TOKEN"; tar -czf - compose.yaml compose.producao.yaml | base64 -w0; echo; } |
             ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$VPS_HOST" "$PARTE $COMMIT"
           echo "feito=true" >> "$GITHUB_OUTPUT"
 

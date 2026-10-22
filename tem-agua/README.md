@@ -164,9 +164,10 @@ Detalhes do Nginx: `remoteEntry.js` e `index.html` sempre revalidam (deploy novo
 
 ### Produção: VPS da Hostinger (https://saltotemagua.victorandra.de)
 
-O app roda no VPS em `/opt/tem-agua` (clone do repositório), atrás do **Traefik** que já existe no servidor (HTTPS automático com Let's Encrypt):
+O app roda no VPS em `/opt/tem-agua`, atrás do **Traefik** que já existe no servidor (HTTPS automático com Let's Encrypt):
 
-- `compose.producao.yaml` (raiz) completa o `compose.yaml`: tira as portas publicadas e põe os labels do Traefik para `${DOMINIO}`. Só o Traefik chega ao `web`, pela rede `tem-agua_default`.
+- **O VPS não tem o código** (nada de `git clone`): a pasta guarda só `.env`, `compose.yaml` e `compose.producao.yaml`. A cada deploy o workflow manda os dois arquivos de compose do commit, e as imagens vêm prontas do registro do GitHub.
+- `compose.producao.yaml` (raiz) completa o `compose.yaml`: tira as portas publicadas e o `build` e põe os labels do Traefik para `${DOMINIO}`. Só o Traefik chega ao `web`, pela rede `tem-agua_default`.
 - `/opt/tem-agua/.env` (fora do git, só root lê): `DOMINIO`, `SITE_URL`, `POSTGRES_PASSWORD` e `APARELHO_SEGREDO`, gerados no próprio servidor.
 - DNS: registro **A** `saltotemagua` → `177.7.36.12` (e AAAA para o IPv6) no DNS de `victorandra.de` (GoDaddy).
 
@@ -192,7 +193,7 @@ O cache do `node_modules` tem como chave o hash do `package-lock.json`: com o lo
 
 **O VPS não compila nada:** ele só baixa a imagem pronta do registro do GitHub (GHCR) e troca o container. O token para baixar é o do próprio job (expira quando o job termina) e vai pela entrada do SSH, sem segredo guardado no servidor. A tag de cada imagem fica no `.env` do servidor (`API_TAG`, `WEB_TAG`); para voltar a uma versão anterior, rode no VPS `tem-agua-deploy frontend <commit>` (ou `backend`).
 
-Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json`, no `eslint.config.mjs`, nas etapas (`etapa-*.yml`) ou na action `dependencias` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo` (com o commit opcional), atualiza o compose (`git reset --hard origin/main`), baixa a imagem e troca só aquele container (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se qualquer etapa antes do deploy falhar no GitHub, o deploy nem roda e a versão anterior continua no ar. No fim, o workflow confere se o site responde.
+Mudanças no `compose*.yaml`, no `package.json`/`package-lock.json`, no `eslint.config.mjs`, nas etapas (`etapa-*.yml`) ou na action `dependencias` disparam os dois. O deploy (`.github/workflows/deploy-vps.yml`, reutilizado pelos dois) entra no VPS por SSH com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script aceita só `backend`, `frontend` ou `tudo` (com o commit opcional), atualiza os arquivos de compose com os que o workflow manda junto, baixa a imagem e troca só aquele container (`--no-deps`); dois deploys do mesmo push esperam um pelo outro. Se qualquer etapa antes do deploy falhar no GitHub, o deploy nem roda e a versão anterior continua no ar. No fim, o workflow confere se o site responde.
 
 O Nginx do `web` acha a API pelo DNS do Docker a cada 10 s, então o deploy só do backend não exige reiniciar o frontend.
 

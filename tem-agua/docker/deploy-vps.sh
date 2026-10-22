@@ -6,8 +6,11 @@
 #   frontend <commit>  → web  (ghcr.io/victorandrad/temagua-web:<commit>)   workflow "Frontend"
 #   tudo     [commit]  → api + web (+ db)                                    à mão
 #
-# O token para baixar do registro chega pela entrada padrão (o GITHUB_TOKEN do job, que expira no
-# fim dele); sem token, usa o login que já existir no servidor (imagens públicas não precisam).
+# O VPS não guarda o código (nada de git clone): /opt/tem-agua tem só .env, compose.yaml e
+# compose.producao.yaml. Pela entrada padrão o workflow manda duas linhas:
+#   1. o token do registro (o GITHUB_TOKEN do job, que expira no fim dele);
+#   2. os dois arquivos de compose do commit publicado (tar.gz em base64).
+# Sem a entrada (deploy à mão), usa o login e os arquivos de compose que já estão no servidor.
 #
 # Instalado no servidor em /usr/local/bin/tem-agua-deploy. A chave SSH do GitHub Actions só pode
 # rodar este comando (em /root/.ssh/authorized_keys):
@@ -38,10 +41,24 @@ cd /opt/tem-agua
 exec 9>/var/lock/tem-agua-deploy.lock
 flock -w 900 9 || { echo "Outro deploy demorou demais; tente de novo."; exit 1; }
 
-# Compose e configs do commit publicado (as imagens vêm do registro).
-git fetch --quiet --depth 1 origin main
-git reset --quiet --hard origin/main
-echo "Repositório: $(git log -1 --format='%h · %s') · deploy: $alvo @ $tag"
+token=""
+pacote=""
+if [ ! -t 0 ]; then
+  read -r token || true
+  read -r pacote || true
+fi
+
+# Arquivos de compose do commit publicado: só esses dois nomes são aceitos do pacote.
+if [ -n "$pacote" ]; then
+  tmp=$(mktemp -d)
+  printf '%s' "$pacote" | base64 -d | tar -xzf - -C "$tmp" compose.yaml compose.producao.yaml
+  for f in compose.yaml compose.producao.yaml; do
+    [ -s "$tmp/$f" ] || { echo "Pacote sem $f"; rm -rf "$tmp"; exit 1; }
+    install -m 644 "$tmp/$f" "$f"
+  done
+  rm -rf "$tmp"
+fi
+echo "Deploy: $alvo @ $tag"
 
 # Guarda no .env qual imagem cada serviço usa: qualquer "compose up" depois mantém a versão publicada.
 gravar() {
@@ -53,9 +70,6 @@ case "$alvo" in
   tudo) gravar API_TAG "$tag"; gravar WEB_TAG "$tag" ;;
 esac
 
-# Token do registro pela entrada padrão (se houver).
-token=""
-if [ ! -t 0 ]; then read -r token || true; fi
 if [ -n "$token" ]; then
   trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
   printf '%s' "$token" | docker login ghcr.io -u github-actions --password-stdin >/dev/null
