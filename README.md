@@ -7,6 +7,8 @@
 **Abriu a torneira e não saiu nada? Marque no mapa.**<br/>
 Seus vizinhos veem na hora — e você descobre se o problema é só na sua casa ou no bairro inteiro.
 
+### 👉 [saltotemagua.victorandra.de](https://saltotemagua.victorandra.de)
+
 ![Angular](https://img.shields.io/badge/Angular_21-shell-DD0031?logo=angular&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-mapa-61DAFB?logo=react&logoColor=black)
 ![Vue](https://img.shields.io/badge/Vue_3-painel_e_métricas-4FC08D?logo=vuedotjs&logoColor=white)
@@ -236,7 +238,8 @@ Cada remoto expõe só uma função — `mount(elemento) → desmontar` — ent�
 - [x] Infra em Docker (Nginx + API + banco, túnel opcional)
 - [x] PWA, splash screen e páginas de bairro para o Google
 - [x] Reservatórios por região: setores no mapa (com filtro de setores), no painel, no ranking, nas métricas e no monitoramento
-- [ ] Deploy com endereço fixo e cadastro no Google Search Console
+- [x] No ar em [saltotemagua.victorandra.de](https://saltotemagua.victorandra.de), com deploy automático a cada push no `main` (GitHub Actions → VPS)
+- [ ] Cadastro no Google Search Console
 - [ ] Validar com moradores dos bairros mais afetados
 
 ## 📚 Documentação

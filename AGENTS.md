@@ -161,6 +161,13 @@ npm run docker:down    # inclui os perfis ngrok/cloudflared; "docker compose dow
 - Ao adicionar um remoto novo, além do `REMOTES`/`proxy.conf.json`, copie o `dist` dele em `web.Dockerfile` e inclua o `package.json` dele no estágio de `npm ci`.
 - No Git Bash do Windows, use `MSYS_NO_PATHCONV=1` em `docker run` com caminhos como `/bin/sh`.
 
+### Produção (VPS da Hostinger)
+
+- No ar em **https://saltotemagua.victorandra.de** (VPS KVM 2, `177.7.36.12`), em `/opt/tem-agua`, atrás do Traefik do servidor (`/docker/traefik-duis`, rede do host, Let's Encrypt `letsencrypt`). O VPS tem **outros sistemas** (pnsa, controle-carnes, controle-excursao): não mexa neles nem no Traefik.
+- `compose.producao.yaml` = portas fora (`!reset`) + labels do Traefik; `.env` do servidor (fora do git) tem `DOMINIO`, `SITE_URL`, `POSTGRES_PASSWORD`, `APARELHO_SEGREDO`. Rode sempre `docker compose -f compose.yaml -f compose.producao.yaml ...`.
+- **Deploy automático** (`.github/workflows/deploy.yml`): push no `main` (exceto `*.md`/`docs/`) → job "verificar" (`npm ci`, typecheck, `ng build`) → SSH com o secret `VPS_SSH_KEY`, cuja chave pública está no `authorized_keys` do root com `restrict,command="/usr/local/bin/tem-agua-deploy"` (= `tem-agua/docker/deploy-vps.sh`, copiado à mão: o comando permitido não muda num push). O repositório é **público**: não use runner self-hosted no VPS.
+- O `authorized_keys` do VPS tinha uma linha sem quebra no fim: ao acrescentar chaves, garanta o `\n` antes (`printf '%s\n'`), senão a chave nova gruda na anterior.
+
 ## Restrições do ambiente
 
 - Node local é 20.x → **Angular 21** (o 22 exige Node 22+) e `concurrently` ^9 (o 10 exige Node 22).

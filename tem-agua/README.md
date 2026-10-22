@@ -162,6 +162,24 @@ Detalhes do Nginx: `remoteEntry.js` e `index.html` sempre revalidam (deploy novo
 
 ## Deploy
 
+### Produção: VPS da Hostinger (https://saltotemagua.victorandra.de)
+
+O app roda no VPS em `/opt/tem-agua` (clone do repositório), atrás do **Traefik** que já existe no servidor (HTTPS automático com Let's Encrypt):
+
+- `compose.producao.yaml` (raiz) completa o `compose.yaml`: tira as portas publicadas e põe os labels do Traefik para `${DOMINIO}`. Só o Traefik chega ao `web`, pela rede `tem-agua_default`.
+- `/opt/tem-agua/.env` (fora do git, só root lê): `DOMINIO`, `SITE_URL`, `POSTGRES_PASSWORD` e `APARELHO_SEGREDO`, gerados no próprio servidor.
+- DNS: registro **A** `saltotemagua` → `177.7.36.12` (e AAAA para o IPv6) no DNS de `victorandra.de` (GoDaddy).
+
+**Deploy automático** (`.github/workflows/deploy.yml`): a cada push no `main` (menos mudanças só de documentação) ou manual em *Actions → Deploy no VPS → Run workflow*:
+
+1. **Verificar**: `npm ci`, typecheck dos remotos e build do shell nos servidores do GitHub.
+2. **Deploy**: SSH no VPS com a chave do secret `VPS_SSH_KEY`. No servidor essa chave só pode rodar `/usr/local/bin/tem-agua-deploy` (cópia de [`docker/deploy-vps.sh`](docker/deploy-vps.sh)), por causa de `restrict,command=...` no `authorized_keys`: nada de shell nem outros comandos. O script faz `git reset --hard origin/main` e `docker compose ... up -d --build --wait`; se o build falhar, a versão anterior continua no ar.
+3. Confere se a home e a API respondem.
+
+Deploy à mão (no VPS): `tem-agua-deploy`. Ao mudar `docker/deploy-vps.sh`, copie de novo para `/usr/local/bin/tem-agua-deploy` (o servidor não o atualiza sozinho, de propósito: o comando que a chave pode rodar não muda num push).
+
+### Outros servidores
+
 O jeito mais simples é a imagem `web` + `api` acima (qualquer servidor com Docker). Sem Docker, publique tudo no mesmo domínio: o build do shell (`apps/shell/dist/shell/browser`) na raiz, e o `dist` de cada remoto em `/remotes/mapa/`, `/remotes/painel/` e `/remotes/metricas/`. As rotas `/api`, `/bairros`, `/sitemap.xml` e `/robots.txt` vão para a API. Os builds já saem com esses caminhos.
 
 Se um remoto precisar ficar em outro domínio, use `MAPA_PUBLIC_URL`/`PAINEL_PUBLIC_URL` no build dele, ajuste `REMOTES` em `apps/shell/src/app/remotes.ts` e libere CORS para o domínio do shell.
