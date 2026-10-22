@@ -66,7 +66,8 @@ export function slugBairro(nome: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    // Depois da troca acima só sobra um traço em cada ponta (e /^-|-$/ não tem retrocesso caro).
+    .replace(/^-|-$/g, '');
 }
 
 export function bairroPorSlug(slug: string): Bairro | undefined {

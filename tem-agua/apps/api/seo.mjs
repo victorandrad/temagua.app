@@ -26,7 +26,8 @@ const slug = (nome) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    // Depois da troca acima só sobra um traço em cada ponta (e /^-|-$/ não tem retrocesso caro).
+    .replace(/^-|-$/g, '');
 
 /** @type {Array<{ nome: string, lng: number, lat: number, slug: string }>} */
 export const BAIRROS = JSON.parse(readFileSync(arquivo, 'utf8')).map((b) => ({ ...b, slug: slug(b.nome) }));
@@ -42,7 +43,11 @@ const esc = (s) =>
 
 /** URL pública: SITE_URL (produção) ou a origem da requisição (dev/túnel), sem barra no fim. */
 export function siteUrl(req) {
-  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/+$/, '');
+  if (process.env.SITE_URL) {
+    let url = process.env.SITE_URL;
+    while (url.endsWith('/')) url = url.slice(0, -1);
+    return url;
+  }
   const proto = String(req.headers['x-forwarded-proto'] ?? 'http').split(',')[0].trim();
   return `${proto}://${req.headers.host}`;
 }

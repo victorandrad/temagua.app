@@ -229,7 +229,10 @@ export function MapaApp() {
         },
       });
 
-      const desenhar = (reports: Report[]) => (map.getSource('reports') as GeoJSONSource).setData(toGeoJSON(reports));
+      // setData devolve uma promise (o worker processa os dados); o mapa redesenha sozinho quando termina.
+      const desenhar = (reports: Report[]) => {
+        void (map.getSource('reports') as GeoJSONSource).setData(toGeoJSON(reports));
+      };
       offs.push(on('reports', desenhar));
       // Sem relatos novos o mapa também muda: os antigos perdem peso e expiram com o tempo.
       const relogio = setInterval(() => {
@@ -279,7 +282,7 @@ export function MapaApp() {
           showToast('Você está fora de Salto. Arraste o mapa até o local da falta d’água.');
           return;
         }
-        (mapRef.current?.getSource('me') as GeoJSONSource | undefined)?.setData(meGeoJSON(lng, lat, accuracy));
+        void (mapRef.current?.getSource('me') as GeoJSONSource | undefined)?.setData(meGeoJSON(lng, lat, accuracy));
         mapRef.current?.flyTo({ center: [lng, lat], zoom: accuracy > 150 ? 15 : 17, essential: true });
         if (accuracy > 50) showToast(`Localização aproximada (±${Math.round(accuracy)} m). Arraste o pin para ajustar.`);
         else setToast(null);

@@ -65,7 +65,17 @@ const { default: concurrently } = await import('concurrently');
 const remotesReady = SERVICES.filter((s) => s.name !== 'shell').map((s) => s.ready);
 
 const commands = [
-  { name: 'api', command: 'npm run dev -w apps/api', prefixColor: 'yellow' },
+  {
+    name: 'api',
+    command: 'npm run dev -w apps/api',
+    prefixColor: 'yellow',
+    // Banco local do compose (mesmos padrões do compose.yaml: senha POSTGRES_PASSWORD, porta DB_PORT).
+    env: {
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        `postgres://temagua:${process.env.POSTGRES_PASSWORD ?? 'temagua'}@localhost:${process.env.DB_PORT ?? 5442}/temagua`,
+    },
+  },
   { name: 'mapa', command: 'npm run serve -w apps/mapa', prefixColor: 'blue' },
   { name: 'painel', command: 'npm run serve -w apps/painel', prefixColor: 'green' },
   { name: 'metricas', command: 'npm run serve -w apps/metricas', prefixColor: 'cyan' },

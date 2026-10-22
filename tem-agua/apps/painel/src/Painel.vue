@@ -329,7 +329,7 @@ function abrir(el: Element, done: () => void) {
   // Anima só até o que cabe na tela: o sheet tem altura máxima, e animar até a altura total do
   // conteúdo faria ele bater no limite logo no começo (pareceria um salto, sem animação).
   const sheet = alvo.closest('.ta-sheet') as HTMLElement | null;
-  const max = sheet ? parseFloat(getComputedStyle(sheet).maxHeight) : NaN;
+  const max = sheet ? Number.parseFloat(getComputedStyle(sheet).maxHeight) : Number.NaN;
   const livre = Number.isFinite(max) && peek.value ? max - peek.value.offsetHeight : Infinity;
   animar(alvo, [QUADRO_FECHADO, quadroAberto(alvo, Math.min(alvo.offsetHeight, livre))], ABRIR_MS, done);
 }

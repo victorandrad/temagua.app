@@ -4,7 +4,11 @@ import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 
-export const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://temagua:temagua@localhost:5442/temagua';
+// Sem padrão no código (nenhuma senha no repositório): o npm run dev, o compose e o CI definem a variável.
+export const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  throw new Error('Defina DATABASE_URL (o npm run dev já define a do banco local do Docker).');
+}
 
 // date e timestamp (sem fuso) chegam como texto: "2026-10-21", sem o Node convertê-los
 // para meia-noite no fuso da máquina.
