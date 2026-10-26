@@ -25,3 +25,12 @@ services:
       traefik.http.routers.tem-agua.entrypoints: websecure
       traefik.http.routers.tem-agua.tls.certresolver: letsencrypt
       traefik.http.services.tem-agua.loadbalancer.server.port: "80"
+      # www.<domínio> → <domínio> (301), com certificado próprio. "$$" = "$" literal no compose.
+      traefik.http.routers.tem-agua-www.rule: Host(`www.${DOMINIO}`)
+      traefik.http.routers.tem-agua-www.entrypoints: websecure
+      traefik.http.routers.tem-agua-www.tls.certresolver: letsencrypt
+      traefik.http.routers.tem-agua-www.middlewares: tem-agua-www
+      traefik.http.routers.tem-agua-www.service: tem-agua
+      traefik.http.middlewares.tem-agua-www.redirectregex.regex: ^https?://www\.([^/]+)(.*)$$
+      traefik.http.middlewares.tem-agua-www.redirectregex.replacement: https://$${1}$${2}
+      traefik.http.middlewares.tem-agua-www.redirectregex.permanent: "true"
