@@ -78,8 +78,8 @@ function salvar(chave: string, valor: string): void {
                 (click)="filtroAberto.set(!filtroAberto())"
               >
                 {{ rotuloSetores(setores()) }}
-                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
-                  <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                <svg class="seta" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                  <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </button>
             }
@@ -133,6 +133,9 @@ function salvar(chave: string, valor: string): void {
     }
     .badge.link { background: #fff; color: #000; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16); }
     .badge.link:hover { background: #f3f3f3; }
+    .seta { display: block; flex: none; margin-right: -2px; transition: transform 150ms ease; }
+    .filtro-chip[aria-expanded='true'] .seta { transform: rotate(180deg); }
+    @media (prefers-reduced-motion: reduce) { .seta { transition: none; } }
     button.badge { border: 0; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
     .toggle[aria-pressed='true'] { background: #276ef1; color: #fff; }
     .toggle[aria-pressed='true']:hover { background: #1e5fd6; }
