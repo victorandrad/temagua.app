@@ -9,6 +9,7 @@ import Esqueleto from './components/Esqueleto.vue';
 import MapaPontos from './components/MapaPontos.vue';
 import MonitorMapa from './components/MonitorMapa.vue';
 import Relatorio from './components/Relatorio.vue';
+import Tour from './components/Tour.vue';
 
 type Preset = 'hoje' | '7d' | '30d' | '90d' | 'custom';
 const PRESETS: Array<{ id: Preset; label: string }> = [
@@ -68,6 +69,35 @@ const filtros = computed<Filtros>(() => {
 const periodoTexto = computed(() => {
   const f = filtros.value;
   return f.de === f.ate ? dataBr(f.de) : `${dataBr(f.de)} a ${dataBr(f.ate)}`;
+});
+
+// ---- Tour guiado (components/Tour.vue) ----
+// Abre sozinho na primeira visita, quando os dados chegam; depois só pelo botão "Como usar".
+const CHAVE_TOUR = 'tem-agua:tour-metricas:v1';
+const tourAberto = ref(false);
+function tourJaVisto(): boolean {
+  try {
+    return localStorage.getItem(CHAVE_TOUR) === 'visto';
+  } catch {
+    return true; // sem localStorage (modo privado restrito): não insiste a cada visita
+  }
+}
+function abrirTour() {
+  if (monitor.value || gerandoPdf.value) return;
+  tourAberto.value = true;
+}
+function fecharTour() {
+  tourAberto.value = false;
+  try {
+    localStorage.setItem(CHAVE_TOUR, 'visto');
+  } catch {
+    // sem localStorage: o tour pode reaparecer na próxima visita
+  }
+}
+const pararPrimeiroTour = watch(m, (atual) => {
+  if (!atual) return;
+  pararPrimeiroTour();
+  if (!tourJaVisto() && !monitor.value) setTimeout(abrirTour, 600); // depois dos gráficos aparecerem
 });
 
 // ---- Dados ----
@@ -175,6 +205,9 @@ function fimPdf() {
           Salto/SP · {{ periodoTexto }} · {{ bairro ?? 'todos os bairros' }}
         </p>
       </div>
+      <button type="button" class="ta-met__ajuda" @click="abrirTour">
+        <span aria-hidden="true">?</span> Como usar
+      </button>
       <p class="ta-met__live" aria-live="polite">
         <span class="ta-met__live-dot" aria-hidden="true"></span>
         Ao vivo<template v-if="m"> · atualizado às {{ horaBr(m.geradoEm) }}</template>
@@ -183,7 +216,7 @@ function fimPdf() {
 
     <!-- Uma linha de filtros acima de tudo; todos os números abaixo respondem a ela. -->
     <div class="ta-met__filtros" role="toolbar" aria-label="Filtros do relatório">
-      <div class="ta-met__seg" role="radiogroup" aria-label="Período">
+      <div class="ta-met__seg" role="radiogroup" aria-label="Período" data-tour="periodo">
         <button
           v-for="p in PRESETS"
           :key="p.id"
@@ -200,7 +233,7 @@ function fimPdf() {
         <label class="ta-met__campo">De <input v-model="customDe" type="date" :max="customAte" /></label>
         <label class="ta-met__campo">Até <input v-model="customAte" type="date" :min="customDe" :max="hojeEmSalto()" /></label>
       </template>
-      <label class="ta-met__campo">
+      <label class="ta-met__campo" data-tour="bairro">
         <span class="ta-met__sr">Bairro</span>
         <select v-model="bairro">
           <option :value="null">Todos os bairros</option>
@@ -208,14 +241,14 @@ function fimPdf() {
         </select>
       </label>
       <span class="ta-met__spacer"></span>
-      <button type="button" class="ta-met__btn ta-met__so-pc" @click="abrirMonitor">
+      <button type="button" class="ta-met__btn ta-met__so-pc" data-tour="monitor" @click="abrirMonitor">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
           <path d="M1 1h5v2H3v3H1V1Zm9 0h5v5h-2V3h-3V1ZM1 10h2v3h3v2H1v-5Zm12 0h2v5h-5v-2h3v-3Z" fill="currentColor" />
         </svg>
         Monitoramento
       </button>
-      <a class="ta-met__btn" :href="csvUrl(filtros)" download>Exportar CSV</a>
-      <button type="button" class="ta-met__btn ta-met__btn--primary ta-met__so-pc" :disabled="!m || gerandoPdf" @click="gerarPdf">
+      <a class="ta-met__btn" :href="csvUrl(filtros)" download data-tour="exportar">Exportar CSV</a>
+      <button type="button" class="ta-met__btn ta-met__btn--primary ta-met__so-pc" data-tour="pdf" :disabled="!m || gerandoPdf" @click="gerarPdf">
         {{ gerandoPdf ? 'Preparando…' : 'Relatório PDF' }}
       </button>
     </div>
@@ -224,8 +257,8 @@ function fimPdf() {
 
     <template v-if="m && r">
       <!-- ---- Indicadores ---- -->
-      <section class="ta-met__kpis" aria-label="Indicadores">
-        <article class="ta-met__hero">
+      <section class="ta-met__kpis" aria-label="Indicadores" data-tour="indicadores">
+        <article class="ta-met__hero" data-tour="total">
           <h2 class="ta-met__label">Relatos de falta d'água</h2>
           <p class="ta-met__hero-valor">{{ nf.format(r.semAgua) }}</p>
           <p
@@ -269,7 +302,7 @@ function fimPdf() {
 
       <section v-else class="ta-met__grid">
         <!-- Série temporal -->
-        <article class="ta-met__card ta-met__card--full">
+        <article class="ta-met__card ta-met__card--full" data-tour="serie">
           <header class="ta-met__card-head">
             <div>
               <h2 class="ta-met__card-title">Relatos {{ m.serie.granularidade === 'hora' ? 'por hora' : 'por dia' }}</h2>
@@ -293,7 +326,7 @@ function fimPdf() {
         </article>
 
         <!-- Heatmap dia da semana × hora -->
-        <article class="ta-met__card">
+        <article class="ta-met__card" data-tour="quando">
           <header class="ta-met__card-head">
             <div>
               <h2 class="ta-met__card-title">Quando falta água</h2>
@@ -315,7 +348,7 @@ function fimPdf() {
         </article>
 
         <!-- Ranking -->
-        <article class="ta-met__card">
+        <article class="ta-met__card" data-tour="bairros">
           <header class="ta-met__card-head">
             <div>
               <h2 class="ta-met__card-title">Bairros mais afetados</h2>
@@ -326,7 +359,7 @@ function fimPdf() {
         </article>
 
         <!-- Mapa -->
-        <article class="ta-met__card">
+        <article class="ta-met__card" data-tour="mapa">
           <header class="ta-met__card-head">
             <div>
               <h2 class="ta-met__card-title">Onde os relatos se concentram</h2>
@@ -358,7 +391,7 @@ function fimPdf() {
         </article>
 
         <!-- Por setor de abastecimento (reservatório) -->
-        <article class="ta-met__card ta-met__card--full">
+        <article class="ta-met__card ta-met__card--full" data-tour="reservatorio">
           <header class="ta-met__card-head">
             <div>
               <h2 class="ta-met__card-title">Por reservatório</h2>
@@ -427,6 +460,8 @@ function fimPdf() {
 
     <Relatorio v-if="gerandoPdf && m" :m="m" @pronto="imprimirRelatorio" />
     <p v-if="gerandoPdf" class="ta-met__preparando" role="status">Preparando o relatório em PDF…</p>
+
+    <Tour v-if="tourAberto" :aberto="tourAberto" @fechar="fecharTour" />
 
     <MonitorMapa v-if="monitor" :tela-cheia="monitorTelaCheia" @fechar="fecharMonitor" />
   </div>
