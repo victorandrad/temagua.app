@@ -215,10 +215,12 @@
   font-size: 14px;
 }
 
+/* Mesma altura do "Como usar" ao lado: o cabeçalho alinha pela base e os dois ficam centrados na mesma linha. */
 .ta-met__live {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 30px;
   color: var(--ta-texto-2);
   font-size: 13px;
 }
