@@ -12,6 +12,7 @@ import {
   RECONFIRMAR_MS,
   relatoAtivo,
   setorPorId,
+  slugBairro,
   ultimaConfirmacao,
   type LocalAbastecimento,
   type MapCenter,
@@ -250,8 +251,34 @@ function report(s: WaterStatus, reconfirmar?: Report) {
   sentBairro.value = reconfirmar?.bairro ?? center.value?.bairro ?? 'Salto';
   sent.value = s;
   clearTimeout(sentTimer);
-  sentTimer = setTimeout(() => (sent.value = null), 3500);
+  // Tempo para ler e tocar em "Avisar no WhatsApp".
+  sentTimer = setTimeout(fecharObrigado, 12_000);
 }
+
+function fecharObrigado() {
+  clearTimeout(sentTimer);
+  sent.value = null;
+}
+
+// ---- "Avise seus vizinhos" no WhatsApp, depois de relatar ----
+// O link vai para a página do bairro (/bairros/<slug>), cuja prévia no WhatsApp mostra quantos
+// relatos de falta houve nas últimas 6 h (og:title/description gerados pela API).
+const whatsappUrl = computed(() => {
+  const nome = sentBairro.value;
+  const ehBairro = BAIRROS.some((b) => b.nome === nome);
+  const link = ehBairro ? `${location.origin}/bairros/${slugBairro(nome)}` : location.origin;
+  const onde = ehBairro ? `no ${nome}` : 'em Salto';
+  let texto: string;
+  if (sent.value === 'voltou') {
+    texto = `A água voltou aqui ${onde}. Voltou aí também? Avise no mapa do Tem Água?: ${link}`;
+  } else {
+    // Os relatos de falta do bairro ainda valendo nas últimas 6 h (o deste aparelho entra assim que sincroniza).
+    const n = recent.value.filter((r) => r.status === 'sem-agua' && r.bairro === nome).length;
+    const quantos = n > 1 ? ` Já são ${n} avisos nas últimas 6 h.` : '';
+    texto = `Está sem água ${onde}?${quantos} Avise também no mapa do Tem Água?, leva segundos e ajuda a cobrar solução com dados: ${link}`;
+  }
+  return `https://wa.me/?text=${encodeURIComponent(texto)}`;
+});
 
 function goTo(item: LinhaRanking) {
   if (item.destino) emit('fly-to', item.destino);
@@ -396,6 +423,18 @@ onBeforeUnmount(() => {
         </div>
         <p class="ta-done__title">Obrigado pelo relato!</p>
         <p class="ta-done__sub">Ele já aparece no mapa de {{ sentBairro }} e ajuda seus vizinhos.</p>
+        <div class="ta-done__acoes">
+          <a class="ta-btn ta-btn--whatsapp" :href="whatsappUrl" target="_blank" rel="noopener" @click="fecharObrigado">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z"
+              />
+            </svg>
+            Avisar vizinhos no WhatsApp
+          </a>
+          <button type="button" class="ta-done__fechar" @click="fecharObrigado">Agora não</button>
+        </div>
       </div>
 
       <template v-else>

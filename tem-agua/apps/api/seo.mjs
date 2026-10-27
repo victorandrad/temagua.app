@@ -107,6 +107,9 @@ async function resumoBairro(nome) {
   const [{ rows }, dur] = await Promise.all([
     pool.query(
       `SELECT
+         -- Relatos de falta ainda valendo nas últimas 6 h (vai na prévia do link no WhatsApp).
+         count(*) FILTER (WHERE status = 'sem-agua' AND encerrado_em IS NULL
+                            AND coalesce(confirmado_em, criado_em) > now() - interval '6 hours')::int AS falta6,
          count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '24 hours')::int AS falta24,
          count(*) FILTER (WHERE status = 'voltou'   AND criado_em > now() - interval '24 hours')::int AS volta24,
          count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '7 days')::int  AS falta7,
@@ -166,14 +169,15 @@ h1{margin:10px 0 4px;font-size:28px;line-height:1.2;letter-spacing:-.02em}.sub{m
 .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.num{padding:12px;border-radius:10px;background:#f6f6f6}
 .num strong{display:block;font-size:24px;line-height:1.1}.num small{color:#5e5e5e;font-size:12px}
 .acoes{display:grid;gap:8px;margin-top:16px}.btn{display:block;padding:14px;border-radius:10px;background:#000;color:#fff;font-weight:600;text-align:center;text-decoration:none}
-.btn.sec{background:#eee;color:#000}h2{margin:28px 0 8px;font-size:18px}p{margin:8px 0}
+.btn.sec{background:#eee;color:#000}.btn.wa{background:#fff;color:#000;box-shadow:inset 0 0 0 1px #d6d6d6}h2{margin:28px 0 8px;font-size:18px}p{margin:8px 0}
 ul.bairros{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;padding:0;list-style:none}
 ul.bairros a{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:#fff;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.06)}
 ul.bairros a:hover{background:#f0f0f0}ul.bairros .dot{margin-top:0;width:10px;height:10px}ul.bairros small{margin-left:auto;color:#5e5e5e;font-size:12px}
 footer{max-width:760px;margin:0 auto;padding:0 16px 32px;color:#5e5e5e;font-size:12px}
 @media(max-width:560px){.nums{grid-template-columns:repeat(2,1fr)}h1{font-size:24px}}`;
 
-function pagina({ base, caminho, titulo, descricao, jsonLd, corpo, indexar = true }) {
+/** `ogTitulo`: título da prévia do link (WhatsApp, redes), quando deve ser diferente do da busca. */
+function pagina({ base, caminho, titulo, ogTitulo = titulo, descricao, jsonLd, corpo, indexar = true }) {
   const url = `${base}${caminho}`;
   const verificacao = process.env.GOOGLE_SITE_VERIFICATION
     ? `\n  <meta name="google-site-verification" content="${esc(process.env.GOOGLE_SITE_VERIFICATION)}">`
@@ -190,7 +194,7 @@ function pagina({ base, caminho, titulo, descricao, jsonLd, corpo, indexar = tru
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Tem Água?">
   <meta property="og:locale" content="pt_BR">
-  <meta property="og:title" content="${esc(titulo)}">
+  <meta property="og:title" content="${esc(ogTitulo)}">
   <meta property="og:description" content="${esc(descricao)}">
   <meta property="og:url" content="${esc(url)}">
   <meta property="og:image" content="${esc(base)}/icons/og.png">
@@ -245,10 +249,13 @@ export async function paginaBairro(req, s) {
   const atualizado = quando(new Date());
 
   const titulo = `Falta de água no ${b.nome}, Salto/SP — situação agora | Tem Água?`;
-  const descricao =
-    r.falta24 > 0
-      ? `${r.falta24} ${r.falta24 === 1 ? 'relato' : 'relatos'} de falta de água no ${b.nome} nas últimas 24 horas. Veja no mapa ao vivo e avise seus vizinhos.`
-      : `Está faltando água no ${b.nome}, em Salto/SP? Veja os relatos dos vizinhos no mapa ao vivo e avise quando faltar ou voltar.`;
+  // A prévia do link (WhatsApp) mostra og:title + description: com falta agora, o número das últimas 6 h.
+  const relatos = (n) => `${n} ${n === 1 ? 'relato' : 'relatos'}`;
+  const ogTitulo = r.falta6 > 0 ? `Sem água no ${b.nome} agora: ${relatos(r.falta6)} nas últimas 6 h` : `Falta de água no ${b.nome}, Salto/SP`;
+  let descricao = `Está faltando água no ${b.nome}, em Salto/SP? Veja os relatos dos vizinhos no mapa ao vivo e avise quando faltar ou voltar.`;
+  if (r.falta6 > 0) descricao = `${relatos(r.falta6)} de falta de água no ${b.nome} nas últimas 6 horas. Está sem água também? Avise no mapa ao vivo e ajude seus vizinhos.`;
+  else if (r.falta24 > 0) descricao = `${relatos(r.falta24)} de falta de água no ${b.nome} nas últimas 24 horas. Veja no mapa ao vivo e avise seus vizinhos.`;
+  const whatsapp = `https://wa.me/?text=${encodeURIComponent(`${ogTitulo}. Veja e avise no mapa: ${base}/bairros/${b.slug}`)}`;
 
   // Quanto tempo a falta durou (últimos 30 dias): do aviso até o mesmo aparelho dizer que a água voltou.
   const duracao = r.faltasMedidas
@@ -275,6 +282,7 @@ export async function paginaBairro(req, s) {
       <div class="acoes">
         <a class="btn" href="${esc(mapa)}">Ver o ${esc(b.nome)} no mapa ao vivo</a>
         <a class="btn sec" href="${esc(mapa)}">Estou sem água: avisar os vizinhos</a>
+        <a class="btn wa" href="${esc(whatsapp)}" target="_blank" rel="noopener">Compartilhar no WhatsApp</a>
       </div>
     </section>
 ${duracao}
@@ -323,7 +331,7 @@ ${
     ],
   };
 
-  return { status: 200, html: pagina({ base, caminho: `/bairros/${b.slug}`, titulo, descricao, jsonLd, corpo }) };
+  return { status: 200, html: pagina({ base, caminho: `/bairros/${b.slug}`, titulo, ogTitulo, descricao, jsonLd, corpo }) };
 }
 
 export async function paginaIndice(req) {

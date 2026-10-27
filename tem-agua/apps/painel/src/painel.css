@@ -167,10 +167,50 @@
 }
 
 .ta-done__sub {
-  margin: 0 0 30px;
+  margin: 0 0 16px;
   max-width: 280px;
   font-size: 14px;
   color: #5e5e5e;
+}
+
+.ta-done__acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  max-width: 340px;
+}
+
+/* Verde escuro do WhatsApp (contraste 5,4:1 com o texto branco), não o verde de "água voltou". */
+.ta-btn--whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  background: #0f7a41;
+  color: #fff;
+  text-decoration: none;
+}
+
+.ta-btn--whatsapp:hover {
+  background: #0c6435;
+}
+
+.ta-done__fechar {
+  height: 40px;
+  border: 0;
+  background: none;
+  color: #5e5e5e;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ta-done__fechar:focus-visible {
+  outline: 3px solid #276ef1;
+  outline-offset: 2px;
 }
 
 @keyframes ta-pop {
