@@ -2,6 +2,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { bairroPorSlug, emit, on, type Camadas } from '@tem-agua/contracts';
 import { FiltroSetores, rotuloSetores } from './filtro-setores';
+import { NovidadeMetricas } from './novidade-metricas';
 import { RemoteSlot } from './remote-slot';
 import { ReportsService } from './reports.service';
 import { SearchBar } from './search-bar';
@@ -40,7 +41,7 @@ function salvar(chave: string, valor: string): void {
 
 @Component({
   selector: 'ta-mapa-page',
-  imports: [RemoteSlot, SearchBar, RouterLink, FiltroSetores],
+  imports: [RemoteSlot, SearchBar, RouterLink, FiltroSetores, NovidadeMetricas],
   template: `
     <main class="app">
       <!-- React: mapa em tela cheia -->
@@ -82,7 +83,7 @@ function salvar(chave: string, valor: string): void {
                 </svg>
               </button>
             }
-            <a class="badge link" routerLink="/metricas">
+            <a class="badge link" routerLink="/metricas" #seloMetricas>
               <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
                 <path d="M2 14V9h3v5H2Zm4.5 0V5h3v9h-3ZM11 14V2h3v12h-3Z" fill="currentColor" />
               </svg>
@@ -102,6 +103,9 @@ function salvar(chave: string, valor: string): void {
         <!-- Vue: relatar + ranking (bottom sheet no celular) -->
         <ta-remote-slot class="sheet" remote="painel" loadingLabel="" errorLabel="O painel não carregou." />
       </aside>
+
+      <!-- Novidade: o painel de métricas agora abre no celular (uma vez por aparelho). -->
+      <ta-novidade-metricas [alvo]="seloMetricas" />
     </main>
   `,
   styles: `
