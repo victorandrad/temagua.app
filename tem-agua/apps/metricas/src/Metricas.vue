@@ -3,8 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ABASTECIMENTO, on } from '@tem-agua/contracts';
 import { csvUrl, fetchBairros, fetchMetricas, type Filtros, type Metricas } from './api';
 import { opcaoBairros, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
-import { dataBr, dataHoraBr, DIAS_SEMANA, hojeEmSalto, horaBr, nf, somaDias, variacao } from './format';
+import { dataBr, dataHoraBr, DIAS_SEMANA, hojeEmSalto, horaBr, nf, somaDias, textoBairros, variacao } from './format';
 import EChart from './components/EChart.vue';
+import FiltroBairros from './components/FiltroBairros.vue';
 import Esqueleto from './components/Esqueleto.vue';
 import MapaPontos from './components/MapaPontos.vue';
 import MonitorMapa from './components/MonitorMapa.vue';
@@ -23,7 +24,7 @@ const PRESETS: Array<{ id: Preset; label: string }> = [
 const preset = ref<Preset>('7d');
 const customDe = ref(somaDias(hojeEmSalto(), -6));
 const customAte = ref(hojeEmSalto());
-const bairro = ref<string | null>(null);
+const bairrosSel = ref<string[]>([]); // vazio = todos
 
 const m = ref<Metricas | null>(null);
 const erro = ref<string | null>(null);
@@ -62,8 +63,8 @@ function fecharMonitor() {
 const filtros = computed<Filtros>(() => {
   const hoje = hojeEmSalto();
   const dias = { hoje: 1, '7d': 7, '30d': 30, '90d': 90 } as const;
-  if (preset.value === 'custom') return { de: customDe.value, ate: customAte.value, bairro: bairro.value };
-  return { de: somaDias(hoje, 1 - dias[preset.value]), ate: hoje, bairro: bairro.value };
+  if (preset.value === 'custom') return { de: customDe.value, ate: customAte.value, bairros: bairrosSel.value };
+  return { de: somaDias(hoje, 1 - dias[preset.value]), ate: hoje, bairros: bairrosSel.value };
 });
 
 const periodoTexto = computed(() => {
@@ -202,7 +203,7 @@ function fimPdf() {
       <div>
         <h1 class="ta-met__title">Relatório de falta d'água</h1>
         <p class="ta-met__sub">
-          Salto/SP · {{ periodoTexto }} · {{ bairro ?? 'todos os bairros' }}
+          Salto/SP · {{ periodoTexto }} · {{ textoBairros(bairrosSel) }}
         </p>
       </div>
       <button type="button" class="ta-met__ajuda" @click="abrirTour">
@@ -233,13 +234,7 @@ function fimPdf() {
         <label class="ta-met__campo">De <input v-model="customDe" type="date" :max="customAte" /></label>
         <label class="ta-met__campo">Até <input v-model="customAte" type="date" :min="customDe" :max="hojeEmSalto()" /></label>
       </template>
-      <label class="ta-met__campo" data-tour="bairro">
-        <span class="ta-met__sr">Bairro</span>
-        <select v-model="bairro">
-          <option :value="null">Todos os bairros</option>
-          <option v-for="b in bairros" :key="b" :value="b">{{ b }}</option>
-        </select>
-      </label>
+      <FiltroBairros v-model="bairrosSel" :opcoes="bairros" data-tour="bairro" />
       <span class="ta-met__spacer"></span>
       <button type="button" class="ta-met__btn ta-met__so-pc" data-tour="monitor" @click="abrirMonitor">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -298,7 +293,7 @@ function fimPdf() {
         </article>
       </section>
 
-      <p v-if="vazio" class="ta-met__vazio">Nenhum relato neste período{{ bairro ? ` em ${bairro}` : '' }}.</p>
+      <p v-if="vazio" class="ta-met__vazio">Nenhum relato neste período{{ bairrosSel.length ? ` em ${textoBairros(bairrosSel)}` : '' }}.</p>
 
       <section v-else class="ta-met__grid">
         <!-- Série temporal -->

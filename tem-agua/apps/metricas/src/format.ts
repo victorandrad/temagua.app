@@ -45,7 +45,14 @@ export function variacao(atual: number, anterior: number): number | null {
   return Math.round(((atual - anterior) / anterior) * 100);
 }
 
-export const DIAS_SEMANA = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+/** "Centro", "Centro e Vila Nova", "Centro, Vila Nova e Jardim Buru"; acima de 3, "5 bairros". */
+export function textoBairros(lista: string[], todos = 'todos os bairros'): string {
+  if (!lista.length) return todos;
+  if (lista.length > 3) return `${lista.length} bairros`;
+  return lista.length === 1 ? lista[0] : `${lista.slice(0, -1).join(', ')} e ${lista.at(-1)}`;
+}
+
+export const DIAS_SEMANA =['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 
 /** Escapa texto vindo da API antes de pôr em HTML de tooltip. */
 export function esc(s: unknown): string {

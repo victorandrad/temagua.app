@@ -4,7 +4,7 @@
 //   POST /api/reports              → relato { id, lng, lat, bairro, status } + cabeçalho X-Aparelho (opcional)
 //                                    → { report, encerrados } (um relato ativo por aparelho, ver registrarRelato)
 //   WS   /api/ws                   → { type: 'report', report } a cada relato novo, renovado ou encerrado
-//   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro)
+//   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro — pode repetir)
 //   GET  /api/metricas/bairros     → bairros com relatos (para o filtro)
 //   GET  /bairros, /bairros/<slug> → páginas HTML para o Google (situação por bairro, só relatos reais)
 //   GET  /sitemap.xml, /robots.txt → indexação
@@ -185,7 +185,9 @@ async function handle(req, res) {
     } catch (err) {
       return sendJson(res, 400, { error: err.message });
     }
-    const nome = `tem-agua-relatos_${filtros.de}_a_${filtros.ate}${filtros.bairro ? `_${filtros.bairro.replace(/\W+/g, '-')}` : ''}.csv`;
+    const b = filtros.bairros;
+    const sufixo = b.length === 1 ? `_${b[0].replace(/\W+/g, '-')}` : b.length > 1 ? `_${b.length}-bairros` : '';
+    const nome = `tem-agua-relatos_${filtros.de}_a_${filtros.ate}${sufixo}.csv`;
     res.writeHead(200, {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${nome}"`,

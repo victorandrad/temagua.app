@@ -11,7 +11,8 @@ export interface Contagens {
 export interface Filtros {
   de: string;
   ate: string;
-  bairro: string | null;
+  /** Vazio = todos os bairros. */
+  bairros: string[];
 }
 
 export interface Metricas {
@@ -45,7 +46,7 @@ export interface Metricas {
 
 export function query(f: Filtros): string {
   const p = new URLSearchParams({ de: f.de, ate: f.ate });
-  if (f.bairro) p.set('bairro', f.bairro);
+  for (const b of f.bairros) p.append('bairro', b);
   return p.toString();
 }
 

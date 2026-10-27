@@ -5,7 +5,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import type { Metricas } from '../api';
 import { COR, opcaoBairros, opcaoHeatmap, opcaoSerie, type Option } from '../charts';
-import { dataBr, dataHoraBr, horaBr, nf, variacao } from '../format';
+import { dataBr, dataHoraBr, horaBr, nf, textoBairros, variacao } from '../format';
 import EChart from './EChart.vue';
 import MapaImagem from './MapaImagem.vue';
 
@@ -14,6 +14,8 @@ const emit = defineEmits<{ pronto: [] }>();
 
 const r = computed(() => props.m.resumo);
 const f = computed(() => props.m.filtros);
+/** Bairros escolhidos no filtro (vazio = todos). */
+const escolhidos = computed(() => f.value.bairros);
 const periodo = computed(() => (f.value.de === f.value.ate ? dataBr(f.value.de) : `${dataBr(f.value.de)} a ${dataBr(f.value.ate)}`));
 const geradoEm = computed(() =>
   new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(props.m.geradoEm)),
@@ -44,9 +46,12 @@ const pctDoTotal = (n: number) => (totalFalta.value ? `${Math.round((n / totalFa
 /** Resumo executivo escrito a partir dos números (frases só com o que os dados sustentam). */
 const resumo = computed(() => {
   const x = r.value;
-  if (!x.semAgua) return [`Nenhum relato de falta d'água ${f.value.bairro ? `em ${f.value.bairro} ` : ''}${f.value.de === f.value.ate ? `em ${periodo.value}` : `entre ${dataBr(f.value.de)} e ${dataBr(f.value.ate)}`}.`];
+  if (!x.semAgua) return [`Nenhum relato de falta d'água ${escolhidos.value.length ? `em ${textoBairros(escolhidos.value)} ` : ''}${f.value.de === f.value.ate ? `em ${periodo.value}` : `entre ${dataBr(f.value.de)} e ${dataBr(f.value.ate)}`}.`];
   const frases: string[] = [];
-  const onde = f.value.bairro ? `em ${f.value.bairro}` : x.bairrosAfetados === 1 ? 'em 1 bairro de Salto' : `em ${x.bairrosAfetados} bairros de Salto`;
+  const sel = escolhidos.value;
+  let onde = x.bairrosAfetados === 1 ? 'em 1 bairro de Salto' : `em ${x.bairrosAfetados} bairros de Salto`;
+  if (sel.length === 1) onde = `em ${sel[0]}`;
+  else if (sel.length) onde = `em ${x.bairrosAfetados} dos ${sel.length} bairros escolhidos`;
   frases.push(
     `${f.value.de === f.value.ate ? `Em ${periodo.value}` : `Entre ${dataBr(f.value.de)} e ${dataBr(f.value.ate)}`}, foram registrados ${nf.format(x.semAgua)} ${x.semAgua === 1 ? 'relato' : 'relatos'} de falta d'água ${onde}.`,
   );
@@ -56,8 +61,10 @@ const resumo = computed(() => {
     frases.push(
       `Isso é ${Math.abs(delta.value)}% ${delta.value > 0 ? 'a mais' : 'a menos'} que no período anterior de mesma duração (${dataBr(x.anterior.de)} a ${dataBr(x.anterior.ate)}, ${nf.format(x.anterior.semAgua)} relatos).`,
     );
-  const top = props.m.bairros[0];
-  if (!f.value.bairro && top?.semAgua) frases.push(`O bairro mais afetado foi ${top.bairro}, com ${nf.format(top.semAgua)} relatos (${pctDoTotal(top.semAgua)} do total).`);
+  // A lista de bairros ignora o filtro (dá contexto da cidade); com vários escolhidos, o destaque é entre eles.
+  const top = sel.length ? props.m.bairros.find((b) => sel.includes(b.bairro)) : props.m.bairros[0];
+  if (sel.length !== 1 && top?.semAgua)
+    frases.push(`O bairro mais afetado foi ${top.bairro}, com ${nf.format(top.semAgua)} relatos (${Math.round((top.semAgua / x.semAgua) * 100)}% do total).`);
   if (x.horaPico !== null) frases.push(`As faltas se concentraram por volta das ${x.horaPico}h${diaPico.value ? `, sobretudo às ${diaPico.value}` : ''}.`);
   frases.push(`Houve ${nf.format(x.voltou)} ${x.voltou === 1 ? 'aviso' : 'avisos'} de que a água voltou.`);
   return frases;
@@ -96,7 +103,7 @@ onMounted(async () => {
       </div>
       <dl class="ta-rel__meta">
         <div><dt>Período</dt><dd>{{ periodo }}</dd></div>
-        <div><dt>Bairro</dt><dd>{{ f.bairro ?? 'Todos' }}</dd></div>
+        <div><dt>{{ escolhidos.length > 1 ? 'Bairros' : 'Bairro' }}</dt><dd>{{ escolhidos.length ? escolhidos.join(', ') : 'Todos' }}</dd></div>
         <div><dt>Gerado em</dt><dd>{{ geradoEm }}</dd></div>
       </dl>
     </header>

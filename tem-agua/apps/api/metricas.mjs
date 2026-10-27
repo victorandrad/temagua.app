@@ -1,5 +1,6 @@
 // Consultas do painel de métricas e do relatório CSV.
-// Filtros (query string): de, ate (AAAA-MM-DD, inclusive, no fuso de Salto), bairro.
+// Filtros (query string): de, ate (AAAA-MM-DD, inclusive, no fuso de Salto) e bairro, que pode se
+// repetir (?bairro=Centro&bairro=Vila%20Nova); sem nenhum = todos os bairros.
 
 import { pool } from './db.mjs';
 
@@ -7,6 +8,7 @@ const TZ = 'America/Sao_Paulo';
 const MAX_DIAS = 366;
 const BOM = String.fromCharCode(0xfeff); // Excel só reconhece UTF-8 com BOM
 const DATA_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_BAIRROS = 100;
 
 /** AAAA-MM-DD e uma data que existe (rejeita 2026-13-01, 2026-02-30…). */
 function dataValida(s) {
@@ -38,9 +40,9 @@ export function parseFiltros(params) {
   const dias = diasEntre(de, ate);
   if (dias < 1) throw new Error('A data inicial deve ser anterior à final.');
   if (dias > MAX_DIAS) throw new Error(`Período máximo de ${MAX_DIAS} dias.`);
-  const bairro = params.get('bairro')?.trim() || null;
-  if (bairro && bairro.length > 80) throw new Error('Bairro inválido.');
-  return { de, ate, dias, bairro };
+  const bairros = [...new Set(params.getAll('bairro').map((b) => b.trim()).filter(Boolean))];
+  if (bairros.length > MAX_BAIRROS || bairros.some((b) => b.length > 80)) throw new Error('Bairro inválido.');
+  return { de, ate, dias, bairros };
 }
 
 /** WHERE comum a todas as consultas. `dataCols` = false ignora o período (ex.: "última hora"). */
@@ -51,9 +53,9 @@ function where(f, { periodo = true, de = f.de, ate = f.ate } = {}) {
     vals.push(de, ate);
     conds.push(`dia BETWEEN $${vals.length - 1} AND $${vals.length}`);
   }
-  if (f.bairro) {
-    vals.push(f.bairro);
-    conds.push(`bairro = $${vals.length}`);
+  if (f.bairros.length) {
+    vals.push(f.bairros);
+    conds.push(`bairro = ANY($${vals.length}::text[])`);
   }
   conds.push(`origem = 'app'`);
   return { sql: conds.length ? `WHERE ${conds.join(' AND ')}` : '', vals };
@@ -133,7 +135,7 @@ async function semanaHora(f) {
 }
 
 async function bairros(f) {
-  const w = where({ ...f, bairro: null });
+  const w = where({ ...f, bairros: [] });
   const { rows } = await pool.query(
     `SELECT bairro, ${CONTAGENS}, max(criado_em) AS ultimo
        FROM relatos ${w.sql}

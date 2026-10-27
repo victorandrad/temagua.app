@@ -18,7 +18,7 @@ interface Passo {
 
 const PASSOS: Passo[] = [
   { alvo: 'periodo', titulo: 'Escolha o período', texto: 'Hoje, 7, 30 ou 90 dias, ou datas personalizadas. Todos os números e gráficos abaixo mudam juntos.' },
-  { alvo: 'bairro', titulo: 'Filtre por bairro', texto: 'Veja só um bairro, ou deixe “Todos os bairros” para a cidade inteira.' },
+  { alvo: 'bairro', titulo: 'Filtre por bairro', texto: 'Marque um ou vários bairros para comparar, ou deixe “Todos os bairros” para a cidade inteira.' },
   { alvo: 'total', titulo: 'Total de faltas', texto: 'Quantos relatos de falta d’água houve no período, comparado com o período anterior do mesmo tamanho, e de quantos aparelhos diferentes vieram.' },
   { alvo: 'indicadores', titulo: 'Resumo rápido', texto: 'Quantas vezes a água voltou, quantos bairros foram afetados, a hora em que mais falta água e o que aconteceu na última hora.' },
   { alvo: 'serie', titulo: 'Dia a dia', texto: 'Falta d’água (vermelho) e água voltando (verde) ao longo do tempo. Passe o dedo ou o mouse nas barras para ver os números, ou toque em “Ver tabela”.' },
