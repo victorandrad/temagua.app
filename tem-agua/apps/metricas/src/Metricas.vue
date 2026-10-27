@@ -26,6 +26,65 @@ const customDe = ref(somaDias(hojeEmSalto(), -6));
 const customAte = ref(hojeEmSalto());
 const bairrosSel = ref<string[]>([]); // vazio = todos
 
+// ---- Filtros no endereço (/metricas?periodo=30d&bairros=Centro,Vila%20Nova) ----
+// O link abre a mesma visão: dá para mandar o recorte pronto (vereador, jornalista). 7 dias e todos os
+// bairros são o padrão e não aparecem no endereço.
+const PERIODOS: Preset[] = ['hoje', '7d', '30d', '90d'];
+const DATA_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function lerFiltrosDaUrl() {
+  const q = new URLSearchParams(location.search);
+  const de = q.get('de');
+  const ate = q.get('ate');
+  if (de && ate && DATA_RE.test(de) && DATA_RE.test(ate) && de <= ate) {
+    preset.value = 'custom';
+    customDe.value = de;
+    customAte.value = ate;
+  } else if (PERIODOS.includes(q.get('periodo') as Preset)) {
+    preset.value = q.get('periodo') as Preset;
+  }
+  bairrosSel.value = [...new Set((q.get('bairros') ?? '').split(',').map((b) => b.trim()).filter(Boolean))];
+}
+lerFiltrosDaUrl();
+
+function gravarFiltrosNaUrl() {
+  const url = new URL(location.href);
+  for (const k of ['periodo', 'de', 'ate', 'bairros']) url.searchParams.delete(k);
+  if (preset.value === 'custom') {
+    url.searchParams.set('de', customDe.value);
+    url.searchParams.set('ate', customAte.value);
+  } else if (preset.value !== '7d') {
+    url.searchParams.set('periodo', preset.value);
+  }
+  if (bairrosSel.value.length) url.searchParams.set('bairros', bairrosSel.value.join(','));
+  // Link legível: "Centro,Vila%20Nova" em vez de "Centro%2CVila+Nova".
+  const busca = url.search.replace(/%2C/gi, ',').replace(/\+/g, '%20');
+  history.replaceState(history.state, '', url.pathname + busca + url.hash);
+}
+
+// "Compartilhar": no celular abre o menu de compartilhar do sistema; no computador copia o link.
+const linkCopiado = ref(false);
+async function compartilhar() {
+  gravarFiltrosNaUrl();
+  const url = location.href;
+  const titulo = `Falta d'água em Salto/SP · ${periodoTexto.value} · ${textoBairros(bairrosSel.value)}`;
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+    try {
+      await navigator.share({ title: titulo, url });
+      return;
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return; // a pessoa fechou o menu
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    linkCopiado.value = true;
+    setTimeout(() => (linkCopiado.value = false), 2500);
+  } catch {
+    window.prompt('Copie o link:', url);
+  }
+}
+
 const m = ref<Metricas | null>(null);
 const erro = ref<string | null>(null);
 const carregando = ref(false);
@@ -122,6 +181,7 @@ async function carregar() {
 }
 
 watch(filtros, carregar, { deep: true });
+watch(filtros, gravarFiltrosNaUrl, { deep: true });
 
 // Tempo real: o shell avisa pelo barramento quando chega um relato (WebSocket); recarrega
 // com um pequeno atraso para agrupar rajadas. A cada minuto também, para a "última hora" andar.
@@ -243,6 +303,12 @@ function fimPdf() {
           <path d="M1 1h5v2H3v3H1V1Zm9 0h5v5h-2V3h-3V1ZM1 10h2v3h3v2H1v-5Zm12 0h2v5h-5v-2h3v-3Z" fill="currentColor" />
         </svg>
         Monitoramento
+      </button>
+      <button type="button" class="ta-met__btn" data-tour="compartilhar" @click="compartilhar">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M6.5 9.5 9.5 6.5M7 4.5l1.2-1.2a2.8 2.8 0 0 1 4 4L11 8.5M9 11.5l-1.2 1.2a2.8 2.8 0 0 1-4-4L5 7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <span aria-live="polite">{{ linkCopiado ? 'Link copiado' : 'Compartilhar' }}</span>
       </button>
       <a class="ta-met__btn" :href="csvUrl(filtros)" download data-tour="exportar">Exportar CSV</a>
       <button type="button" class="ta-met__btn ta-met__btn--primary ta-met__so-pc" data-tour="pdf" :disabled="!m || gerandoPdf" @click="gerarPdf">

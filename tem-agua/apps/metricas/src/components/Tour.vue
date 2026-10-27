@@ -27,6 +27,7 @@ const PASSOS: Passo[] = [
   { alvo: 'bairros', titulo: 'Bairros mais afetados', texto: 'Os 10 bairros com mais relatos de falta no período.' },
   { alvo: 'mapa', titulo: 'Onde se concentram', texto: 'Os relatos agrupados em áreas de uns 200 metros: quanto maior o círculo, mais relatos naquela área.' },
   { alvo: 'reservatorio', titulo: 'Por reservatório', texto: 'Faltas por setor de abastecimento. Quando várias áreas do mesmo setor ficam sem água juntas, o problema costuma ser no reservatório, não na rua.' },
+  { alvo: 'compartilhar', titulo: 'Mande esta visão', texto: 'O link guarda o período e os bairros escolhidos: quem abrir vê exatamente o mesmo recorte.' },
   { alvo: 'exportar', titulo: 'Leve os dados', texto: 'Baixe todos os relatos do período numa planilha (abre no Excel).' },
   { alvo: 'pdf', titulo: 'Relatório em PDF', texto: 'Um relatório de 3 páginas, pronto para levar a uma reunião com a Prefeitura, a Câmara ou o SAAE.' },
   { alvo: 'monitor', titulo: 'Monitoramento ao vivo', texto: 'Mapa de calor em tela cheia, que pulsa onde está faltando água agora. Feito para ficar ligado numa TV.' },
