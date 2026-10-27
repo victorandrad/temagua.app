@@ -87,7 +87,7 @@ Isso funciona porque o shell serve tudo pela mesma origem: o `proxy.conf.json` d
 
 ## Banco de dados e métricas
 
-> O painel de métricas (e o modo monitoramento) só abre em tela grande, com pelo menos 1024 px de largura: computador, notebook, TV ou tablet deitado. No celular, `/metricas` mostra um aviso com "Voltar ao mapa" e "Copiar link para o computador", e o selo "Métricas" não aparece na home.
+> O painel de métricas abre em qualquer tela. No celular ele se ajusta (período deslizando, tabelas com a primeira coluna fixa) e esconde o que é de computador: o modo monitoramento e o relatório em PDF.
 
 
 Cada relato é uma linha da tabela `relatos` (`apps/api/db/schema.sql`, aplicado pela API ao subir): `id`, `status`, `bairro`, `lat`/`lng` (já arredondados para ~11 m), `origem` e `criado_em`, mais colunas calculadas pelo próprio PostgreSQL — **`dia`** e **`hora`** no fuso de Salto e **`geom`** (ponto PostGIS, com índice espacial).

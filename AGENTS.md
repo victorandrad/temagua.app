@@ -73,9 +73,9 @@ O barramento (`contracts/src/bus.ts`) guarda o estado em `window.__TEM_AGUA_BUS_
 - `index.html` tem marcadores `__SITE_URL__` e `__GOOGLE_SITE_VERIFICATION__` trocados pelo Nginx (`sub_filter`). O Nginx agora é **template** (`docker/nginx.conf.template` → `/etc/nginx/templates/`), com `NGINX_ENVSUBST_FILTER` restrito a essas duas variáveis; use `$http_host` (mantém a porta), não `$host`. Dev: `proxy.conf.json` repassa `/bairros`, `/sitemap.xml` e `/robots.txt` para a API.
 - Sem JavaScript, um `<noscript><style>` esconde a splash (o script que a fecha não roda).
 
-### Painel de métricas só em tela grande
+### Painel de métricas no celular
 
-`/metricas` (inclusive o monitoramento) só abre com a janela de pelo menos 1024 px (`TELA_GRANDE` em `apps/shell/src/app/tela-grande.ts`, signal `telaGrande()` que acompanha redimensionar/girar). Abaixo disso a `MetricasPage` mostra um aviso ("Voltar ao mapa" / "Copiar link para o computador"), **não carrega o remoto** e fecha a splash ela mesma; o selo "Métricas" some da home. Os atalhos do PWA continuam apontando para `/metricas` (caem no aviso no celular).
+`/metricas` abre em qualquer tela (a trava de 1024 px saiu). Abaixo de 1024 px o remoto esconde o que é de computador com a classe `ta-met__so-pc` — botões "Monitoramento" e "Relatório PDF" e o link "Tela cheia ao vivo" (o monitoramento ainda abre por `?modo=monitor`). Até 560 px: período numa faixa que desliza (sem quebrar "7 dias"), bairro e "Exportar CSV" na largura toda, tabelas com a primeira coluna fixa (`position: sticky`) e sombra na borda indicando rolagem. Primeiro carregamento com esqueleto (`components/Esqueleto.vue`, mesmo layout dos cartões); recarregando, quadro anterior esmaecido + barra `ta-met__progresso` no topo. O selo "Métricas" aparece na home em qualquer tela.
 
 ### Splash screen e PWA
 

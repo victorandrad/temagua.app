@@ -6,7 +6,6 @@ import { RemoteSlot } from './remote-slot';
 import { ReportsService } from './reports.service';
 import { SearchBar } from './search-bar';
 import { fecharSplash } from './splash';
-import { telaGrande } from './tela-grande';
 
 /** Largura da barra lateral no desktop; o mapa recebe o mesmo valor de padding à esquerda. */
 const LARGURA_LATERAL = 400;
@@ -83,14 +82,12 @@ function salvar(chave: string, valor: string): void {
                 </svg>
               </button>
             }
-            @if (telaGrande()) {
-              <a class="badge link" routerLink="/metricas">
-                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                  <path d="M2 14V9h3v5H2Zm4.5 0V5h3v9h-3ZM11 14V2h3v12h-3Z" fill="currentColor" />
-                </svg>
-                Métricas
-              </a>
-            }
+            <a class="badge link" routerLink="/metricas">
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <path d="M2 14V9h3v5H2Zm4.5 0V5h3v9h-3ZM11 14V2h3v12h-3Z" fill="currentColor" />
+              </svg>
+              Métricas
+            </a>
           </div>
           @if (abastecimento() && filtroAberto()) {
             <ta-filtro-setores
@@ -180,8 +177,6 @@ function salvar(chave: string, valor: string): void {
 export class MapaPage {
   private readonly reports = inject(ReportsService);
   protected readonly live = this.reports.live;
-  /** O painel de métricas só abre em tela grande: no celular o selo nem aparece. */
-  protected readonly telaGrande = telaGrande();
   /** Camada de reservatórios no mapa (lembrada no aparelho; o painel também pode ligar). */
   protected readonly abastecimento = signal(lerCamada());
   /** Setores visíveis na camada (null = todos), também lembrados no aparelho. */

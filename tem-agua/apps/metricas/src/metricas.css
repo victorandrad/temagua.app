@@ -598,7 +598,18 @@
   }
 }
 
+/* Celular e tablet em pé: monitoramento (tela cheia) e relatório PDF (folha A4) são do computador. */
+@media (max-width: 1023px) {
+  .ta-met__so-pc {
+    display: none !important;
+  }
+}
+
 @media (max-width: 560px) {
+  .ta-met {
+    padding: 14px 10px 32px;
+  }
+
   .ta-met__title {
     font-size: 22px;
   }
@@ -607,9 +618,70 @@
     display: none;
   }
 
+  /* Período: uma faixa que desliza para o lado, sem quebrar "7 dias" em duas linhas. */
   .ta-met__seg {
     width: 100%;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ta-met__seg::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ta-met__seg button {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  /* Bairro e datas ocupam a linha toda (alvos maiores para o dedo). */
+  .ta-met__campo {
+    flex: 1 1 100%;
+  }
+
+  .ta-met__campo input,
+  .ta-met__campo select {
+    flex: 1;
+    max-width: none;
+    height: 40px;
+  }
+
+  .ta-met__filtros .ta-met__btn {
+    flex: 1;
+    justify-content: center;
+    height: 40px;
+  }
+
+  .ta-met__card {
+    padding: 14px 12px;
+  }
+
+  /* Tabelas rolam para o lado: a primeira coluna (bairro, setor, data) fica parada e uma sombra
+     na borda direita mostra que há mais colunas. */
+  .ta-met__tabela-wrap {
+    -webkit-overflow-scrolling: touch;
+    background:
+      linear-gradient(to left, var(--ta-sup), var(--ta-sup)) left / 0 100% no-repeat local,
+      linear-gradient(to left, rgba(0, 0, 0, 0.1), transparent) right / 14px 100% no-repeat scroll;
+  }
+
+  .ta-met__tabela th:first-child,
+  .ta-met__tabela td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--ta-sup);
+    box-shadow: 1px 0 0 var(--ta-linha);
+  }
+
+  .ta-met__tabela thead th:first-child {
+    z-index: 2;
+  }
+
+  .ta-met__tabela th,
+  .ta-met__tabela td {
+    padding: 8px;
+    font-size: 12px;
   }
 }
 

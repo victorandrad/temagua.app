@@ -208,14 +208,14 @@ function fimPdf() {
         </select>
       </label>
       <span class="ta-met__spacer"></span>
-      <button type="button" class="ta-met__btn" @click="abrirMonitor">
+      <button type="button" class="ta-met__btn ta-met__so-pc" @click="abrirMonitor">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
           <path d="M1 1h5v2H3v3H1V1Zm9 0h5v5h-2V3h-3V1ZM1 10h2v3h3v2H1v-5Zm12 0h2v5h-5v-2h3v-3Z" fill="currentColor" />
         </svg>
         Monitoramento
       </button>
       <a class="ta-met__btn" :href="csvUrl(filtros)" download>Exportar CSV</a>
-      <button type="button" class="ta-met__btn ta-met__btn--primary" :disabled="!m || gerandoPdf" @click="gerarPdf">
+      <button type="button" class="ta-met__btn ta-met__btn--primary ta-met__so-pc" :disabled="!m || gerandoPdf" @click="gerarPdf">
         {{ gerandoPdf ? 'Preparando…' : 'Relatório PDF' }}
       </button>
     </div>
@@ -332,7 +332,7 @@ function fimPdf() {
               <h2 class="ta-met__card-title">Onde os relatos se concentram</h2>
               <p class="ta-met__card-sub">Áreas de ~200 m · tamanho = número de relatos</p>
             </div>
-            <button type="button" class="ta-met__link" @click="abrirMonitor">Tela cheia ao vivo</button>
+            <button type="button" class="ta-met__link ta-met__so-pc" @click="abrirMonitor">Tela cheia ao vivo</button>
           </header>
           <MapaPontos :pontos="m.pontos" />
         </article>
