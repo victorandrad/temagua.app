@@ -61,8 +61,20 @@ jobs:
           chmod 600 ~/.ssh/deploy
           printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
           # O servidor só aceita "<backend|frontend|tudo> [commit]" (restrict,command=...).
-          { printf '%s\n' "$REGISTRO_TOKEN"; tar -czf - compose.yaml compose.producao.yaml | base64 -w0; echo; } |
-            ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "root@$VPS_HOST" "$PARTE $COMMIT"
+          # Até 3 tentativas quando a conexão SSH falha (código 255: a rede entre o GitHub e a Hostinger
+          # já deu timeout na porta 22). O deploy no servidor pode rodar de novo sem problema (pull + up).
+          for tentativa in 1 2 3; do
+            set +e
+            { printf '%s\n' "$REGISTRO_TOKEN"; tar -czf - compose.yaml compose.producao.yaml | base64 -w0; echo; } |
+              ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=30 \
+                -o ServerAliveInterval=15 -o ServerAliveCountMax=8 "root@$VPS_HOST" "$PARTE $COMMIT"
+            codigo=$?
+            set -e
+            [ "$codigo" -eq 0 ] && break
+            if [ "$codigo" -ne 255 ] || [ "$tentativa" -eq 3 ]; then exit "$codigo"; fi
+            echo "::warning::SSH falhou (tentativa $tentativa de 3); tentando de novo em 20 s."
+            sleep 20
+          done
           echo "feito=true" >> "$GITHUB_OUTPUT"
 
       - name: Conferir o site
