@@ -5,6 +5,7 @@ import { csvUrl, fetchBairros, fetchMetricas, type Filtros, type Metricas } from
 import { opcaoBairros, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
 import { dataBr, dataHoraBr, DIAS_SEMANA, hojeEmSalto, horaBr, nf, somaDias, variacao } from './format';
 import EChart from './components/EChart.vue';
+import Esqueleto from './components/Esqueleto.vue';
 import MapaPontos from './components/MapaPontos.vue';
 import MonitorMapa from './components/MonitorMapa.vue';
 import Relatorio from './components/Relatorio.vue';
@@ -165,6 +166,8 @@ function fimPdf() {
 
 <template>
   <div class="ta-met" :class="{ 'is-loading': carregando && m, 'is-relatorio': gerandoPdf }">
+    <!-- Recarregando (filtro novo ou atualização): barra fina no topo; o quadro anterior fica esmaecido. -->
+    <div v-if="carregando && m" class="ta-met__progresso" role="progressbar" aria-label="Atualizando métricas"></div>
     <header class="ta-met__head">
       <div>
         <h1 class="ta-met__title">Relatório de falta d'água</h1>
@@ -420,7 +423,7 @@ function fimPdf() {
       </p>
     </template>
 
-    <p v-else-if="!erro" class="ta-met__vazio">Carregando métricas…</p>
+    <Esqueleto v-else-if="!erro" />
 
     <Relatorio v-if="gerandoPdf && m" :m="m" @pronto="imprimirRelatorio" />
     <p v-if="gerandoPdf" class="ta-met__preparando" role="status">Preparando o relatório em PDF…</p>
