@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ABASTECIMENTO, on } from '@tem-agua/contracts';
 import { csvUrl, fetchBairros, fetchMetricas, type Filtros, type Metricas } from './api';
-import { opcaoBairros, opcaoDuracao, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
+import { linhasComparacao, opcaoBairros, opcaoComparacao, opcaoDuracao, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
 import { dataBr, dataHoraBr, DIAS_SEMANA, duracaoBr, hojeEmSalto, horaBr, nf, somaDias, textoBairros, variacao } from './format';
 import EChart from './components/EChart.vue';
 import FiltroBairros from './components/FiltroBairros.vue';
@@ -217,6 +217,12 @@ const delta = computed(() => (r.value ? variacao(r.value.semAgua, r.value.anteri
 const vazio = computed(() => r.value?.total === 0);
 
 const opSerie = computed(() => (m.value ? opcaoSerie(m.value) : {}));
+// Com 2+ bairros escolhidos, a série mostra uma linha por bairro ("Somar" volta às colunas).
+const somar = ref(false);
+const podeComparar = computed(() => (m.value?.serie.bairros?.length ?? 0) >= 2);
+const comparacao = computed(() => podeComparar.value && !somar.value);
+const linhasComp = computed(() => (m.value ? linhasComparacao(m.value) : []));
+const opComparacao = computed(() => (m.value ? opcaoComparacao(m.value) : {}));
 const opHeatmap = computed(() => (m.value ? opcaoHeatmap(m.value) : {}));
 const opBairros = computed(() => (m.value ? opcaoBairros(m.value) : {}));
 const opDuracao = computed(() => (m.value ? opcaoDuracao(m.value) : {}));
@@ -368,14 +374,46 @@ function fimPdf() {
         <article class="ta-met__card ta-met__card--full" data-tour="serie">
           <header class="ta-met__card-head">
             <div>
-              <h2 class="ta-met__card-title">Relatos {{ m.serie.granularidade === 'hora' ? 'por hora' : 'por dia' }}</h2>
-              <p class="ta-met__card-sub">Falta d'água e normalização no período</p>
+              <h2 class="ta-met__card-title">
+                {{ comparacao ? 'Falta d’água' : 'Relatos' }} {{ m.serie.granularidade === 'hora' ? 'por hora' : 'por dia' }}{{ comparacao ? ', por bairro' : '' }}
+              </h2>
+              <p class="ta-met__card-sub">
+                {{ comparacao ? 'Um bairro por linha: relatos de falta no período' : 'Falta d’água e normalização no período' }}
+              </p>
             </div>
-            <button type="button" class="ta-met__link" :aria-pressed="tabela.serie" @click="tabela.serie = !tabela.serie">
-              {{ tabela.serie ? 'Ver gráfico' : 'Ver tabela' }}
-            </button>
+            <div class="ta-met__card-acoes">
+              <div v-if="podeComparar" class="ta-met__seg ta-met__seg--mini" role="radiogroup" aria-label="Como mostrar os bairros escolhidos">
+                <button type="button" role="radio" :aria-checked="!somar" :class="{ 'is-on': !somar }" @click="somar = false">Comparar</button>
+                <button type="button" role="radio" :aria-checked="somar" :class="{ 'is-on': somar }" @click="somar = true">Somar</button>
+              </div>
+              <button type="button" class="ta-met__link" :aria-pressed="tabela.serie" @click="tabela.serie = !tabela.serie">
+                {{ tabela.serie ? 'Ver gráfico' : 'Ver tabela' }}
+              </button>
+            </div>
           </header>
-          <div v-if="tabela.serie" class="ta-met__tabela-wrap">
+          <div v-if="tabela.serie && comparacao" class="ta-met__tabela-wrap">
+            <table class="ta-met__tabela">
+              <thead>
+                <tr>
+                  <th>{{ m.serie.granularidade === 'hora' ? 'Hora' : 'Dia' }}</th>
+                  <th v-for="l in linhasComp" :key="l.nome">{{ l.nome }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(p, i) in m.serie.pontos" :key="p.t">
+                  <td>{{ rotuloSerie(p.t, m.serie.granularidade) }}</td>
+                  <td v-for="l in linhasComp" :key="l.nome">{{ nf.format(l.pontos[i]) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <EChart
+            v-else-if="comparacao"
+            :option="opComparacao"
+            :height="280"
+            label="Gráfico de linhas com os relatos de falta d'água de cada bairro escolhido ao longo do tempo"
+          />
+          <div v-else-if="tabela.serie" class="ta-met__tabela-wrap">
             <table class="ta-met__tabela">
               <thead><tr><th>{{ m.serie.granularidade === 'hora' ? 'Hora' : 'Dia' }}</th><th>Sem água</th><th>Água voltou</th></tr></thead>
               <tbody>

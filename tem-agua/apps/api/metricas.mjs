@@ -134,6 +134,38 @@ async function serie(f) {
   return { granularidade: porHora ? 'hora' : 'dia', pontos: rows };
 }
 
+/**
+ * Com 2+ bairros escolhidos, a falta de cada um no mesmo eixo da série (para comparar em linhas).
+ * `pontos[i]` corresponde a `serie.pontos[i]`. Ordenado pelo total de faltas.
+ */
+async function serieBairros(f) {
+  if (f.bairros.length < 2) return [];
+  const porHora = f.dias <= 2;
+  const w = where(f);
+  const passo = porHora ? 'hour' : 'day';
+  const n = w.vals.length;
+  const { rows } = await pool.query(
+    `WITH contagem AS (
+       SELECT bairro, date_trunc('${passo}', criado_em AT TIME ZONE '${TZ}') AS t, count(*)::int AS n
+         FROM relatos ${w.sql} AND status = 'sem-agua' GROUP BY 1, 2
+     ),
+     eixo AS (
+       SELECT generate_series($${n + 1}::date::timestamp,
+                              ($${n + 2}::date + 1)::timestamp - interval '1 ${passo}',
+                              interval '1 ${passo}') AS t
+     )
+     SELECT b.bairro, array_agg(coalesce(c.n, 0) ORDER BY eixo.t) AS pontos, sum(coalesce(c.n, 0))::int AS total
+       FROM eixo
+       CROSS JOIN unnest($${n + 3}::text[]) AS b(bairro)
+       LEFT JOIN contagem c ON c.t = eixo.t AND c.bairro = b.bairro
+      WHERE eixo.t <= (now() AT TIME ZONE '${TZ}')
+      GROUP BY b.bairro
+      ORDER BY total DESC, b.bairro`,
+    [...w.vals, f.de, f.ate, f.bairros],
+  );
+  return rows;
+}
+
 /** Falta d'água por dia da semana (1 = segunda) × hora. */
 async function semanaHora(f) {
   const w = where(f);
@@ -220,16 +252,27 @@ async function recentes(f) {
 
 /** Tudo que o painel precisa numa resposta só (os números sempre batem entre si). */
 export async function metricas(f) {
-  const [r, s, sh, b, p, rec, st] = await Promise.all([
+  const [r, s, sb, sh, b, p, rec, st] = await Promise.all([
     resumo(f),
     serie(f),
+    serieBairros(f),
     semanaHora(f),
     bairros(f),
     pontos(f),
     recentes(f),
     setores(f),
   ]);
-  return { filtros: f, geradoEm: new Date().toISOString(), resumo: r, serie: s, semanaHora: sh, bairros: b, setores: st, pontos: p, recentes: rec };
+  return {
+    filtros: f,
+    geradoEm: new Date().toISOString(),
+    resumo: r,
+    serie: { ...s, bairros: sb },
+    semanaHora: sh,
+    bairros: b,
+    setores: st,
+    pontos: p,
+    recentes: rec,
+  };
 }
 
 /**

@@ -85,11 +85,14 @@ jobs:
           curl -fsS "$API/api/metricas?bairro=Centro&bairro=Vila%20Nova" | node -e '
             let d = ""; process.stdin.on("data", (c) => (d += c)).on("end", () => {
               const m = JSON.parse(d), r = m.resumo, b = m.bairros.find((x) => x.bairro === "Centro");
-              console.log(JSON.stringify({ filtros: m.filtros.bairros, medidas: r.faltasMedidas, media: r.duracaoMediaMin, centro: b?.duracaoMediaMin }));
+              const comp = m.serie.bairros;
+              console.log(JSON.stringify({ filtros: m.filtros.bairros, medidas: r.faltasMedidas, media: r.duracaoMediaMin, centro: b?.duracaoMediaMin, comparacao: comp.map((x) => [x.bairro, x.total]) }));
               if (r.faltasMedidas !== 1 || Math.abs(r.duracaoMediaMin - 180) > 1 || b?.duracaoMediaMin !== r.duracaoMediaMin) process.exit(1);
+              // Comparação: uma série por bairro, no mesmo eixo da série total.
+              if (comp.length !== 2 || comp[0].bairro !== "Centro" || comp[0].total !== 1 || comp[0].pontos.length !== m.serie.pontos.length) process.exit(1);
             });'
-          curl -fsS "$API/api/relatorios/relatos.csv?bairro=Centro" | grep -q ';18[01]'
-          curl -fsS "$API/bairros/centro" | grep -q 'Quanto tempo a falta dura'
+          curl -fsS "$API/api/relatorios/relatos.csv?bairro=Centro" | grep ';18[01]' > /dev/null
+          curl -fsS "$API/bairros/centro" | grep 'Quanto tempo a falta dura' > /dev/null
       - name: Log da API
         if: always() && inputs.parte == 'backend'
         run: cat tem-agua/apps/api/api.log || true

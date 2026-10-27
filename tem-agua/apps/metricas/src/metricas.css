@@ -710,6 +710,28 @@
   margin-bottom: 12px;
 }
 
+.ta-met__card-acoes {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px 10px;
+}
+
+/* "Comparar | Somar" da série: o mesmo controle do período, menor. */
+.ta-met__seg--mini {
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.ta-met__seg--mini button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
 .ta-met__card-title {
   font-size: 16px;
   font-weight: 600;
@@ -878,6 +900,20 @@
 
   .ta-met__seg::-webkit-scrollbar {
     display: none;
+  }
+
+  /* "Comparar | Somar": do tamanho do texto; o cabeçalho do cartão quebra e ele desce para baixo do título. */
+  .ta-met__seg--mini {
+    width: auto;
+  }
+
+  .ta-met__card-head:has(.ta-met__seg--mini) {
+    flex-wrap: wrap;
+  }
+
+  .ta-met__card-head:has(.ta-met__seg--mini) .ta-met__card-acoes {
+    flex-basis: 100%;
+    justify-content: space-between;
   }
 
   .ta-met__seg button {

@@ -37,7 +37,12 @@ export interface Metricas {
     anterior: Contagens & { de: string; ate: string };
     ultimaHora: Contagens;
   };
-  serie: { granularidade: 'hora' | 'dia'; pontos: Array<{ t: string; semAgua: number; voltou: number }> };
+  serie: {
+    granularidade: 'hora' | 'dia';
+    pontos: Array<{ t: string; semAgua: number; voltou: number }>;
+    /** Com 2+ bairros escolhidos: faltas de cada um no mesmo eixo (pontos[i] ↔ serie.pontos[i]), por total. */
+    bairros?: Array<{ bairro: string; pontos: number[]; total: number }>;
+  };
   semanaHora: Array<{ dow: number; hora: number; semAgua: number }>;
   bairros: Array<Contagens & Duracoes & { bairro: string; ultimo: string }>;
   /** Por setor de abastecimento (reservatório); só relatos dentro das áreas do mapa. */

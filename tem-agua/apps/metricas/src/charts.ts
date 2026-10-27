@@ -6,13 +6,13 @@
 // tooltip e tabela. O heatmap usa uma rampa sequencial de um tom só (monotônica, validada).
 
 import * as echarts from 'echarts/core';
-import { BarChart, HeatmapChart } from 'echarts/charts';
+import { BarChart, HeatmapChart, LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
 import type { Contagens, Metricas } from './api';
 import { compacto, dataBr, DIAS_SEMANA, duracaoBr, esc, nf } from './format';
 
-echarts.use([BarChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
+echarts.use([BarChart, HeatmapChart, LineChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
 
 export { echarts };
 export type Option = echarts.EChartsCoreOption;
@@ -122,6 +122,91 @@ export function opcaoSerie(m: Metricas): Option {
         data: pontos.map((p) => p.voltou),
       },
     ],
+  };
+}
+
+/**
+ * Cores categóricas das linhas de comparação, em ordem fixa e distribuídas pelo nome do bairro (ordem
+ * alfabética), não pelo ranking: com até 5 bairros, trocar o período não troca as cores. Subconjunto da
+ * paleta dos setores sem os pares que se confundem; validado em todos os pares (dataviz validate_palette:
+ * deutan ≥ 13, visão normal ≥ 15,8). Laranja e azul-claro têm contraste < 3:1 com o fundo: por isso
+ * legenda sempre visível, tooltip e "Ver tabela".
+ */
+export const CORES_COMPARACAO = ['#276EF1', '#E8833A', '#D6409F', '#A0561A', '#3FA9F5'];
+const COR_OUTROS = COR.mudo;
+
+export interface LinhaComparacao {
+  nome: string;
+  cor: string;
+  pontos: number[];
+  /** Linha "Outros": soma dos bairros além dos 5 primeiros (tracejada, cinza). */
+  outros?: boolean;
+}
+
+/** Até 5 bairros (os com mais faltas) em linhas próprias, em ordem alfabética; os demais somados em "Outros". */
+export function linhasComparacao(m: Metricas): LinhaComparacao[] {
+  const lista = m.serie.bairros ?? [];
+  const linhas: LinhaComparacao[] = lista
+    .slice(0, CORES_COMPARACAO.length)
+    .sort((a, b) => a.bairro.localeCompare(b.bairro, 'pt-BR'))
+    .map((b, i) => ({ nome: b.bairro, cor: CORES_COMPARACAO[i], pontos: b.pontos }));
+  const resto = lista.slice(CORES_COMPARACAO.length);
+  if (resto.length) {
+    linhas.push({
+      nome: `Outros (${resto.length})`,
+      cor: COR_OUTROS,
+      pontos: resto[0].pontos.map((_, i) => resto.reduce((s, b) => s + b.pontos[i], 0)),
+      outros: true,
+    });
+  }
+  return linhas;
+}
+
+/** Falta d'água por bairro escolhido, uma linha cada (comparação em vez da soma). */
+export function opcaoComparacao(m: Metricas): Option {
+  const { pontos, granularidade } = m.serie;
+  const linhas = linhasComparacao(m);
+  const marcadores = pontos.length <= 31; // poucos pontos: bolinhas de 8 px; muitos: só a linha
+  return {
+    textStyle: { fontFamily: FONTE },
+    grid: { left: 8, right: 8, top: 36, bottom: 4, containLabel: true },
+    legend: {
+      left: 0,
+      top: 0,
+      type: 'scroll',
+      itemWidth: 16,
+      itemHeight: 8,
+      textStyle: { color: COR.textoSec, fontSize: 12 },
+      data: linhas.map((l) => l.nome),
+    },
+    tooltip: {
+      ...tooltipBase,
+      trigger: 'axis',
+      axisPointer: { type: 'line', lineStyle: { color: COR.eixo } },
+      formatter: (params: Array<{ dataIndex: number }>) => {
+        const i = params[0].dataIndex;
+        const p = pontos[i];
+        const titulo = granularidade === 'dia' ? dataBr(p.t) : `${dataBr(p.t)} · ${Number(p.t.slice(11, 13))}h`;
+        const ordenadas = [...linhas].sort((a, b) => b.pontos[i] - a.pontos[i]);
+        return `<div style="color:${COR.textoSec};font-size:12px">${titulo} · relatos de falta</div>` +
+          ordenadas.map((l) => linha(l.cor, l.pontos[i], l.nome)).join('');
+      },
+    },
+    xAxis: { type: 'category', data: pontos.map((p) => rotuloSerie(p.t, granularidade)), boundaryGap: false, ...eixoCategoria },
+    yAxis: { type: 'value', ...eixoValor },
+    series: linhas.map((l) => ({
+      name: l.nome,
+      type: 'line',
+      data: l.pontos,
+      color: l.cor,
+      lineStyle: { width: 2, type: l.outros ? 'dashed' : 'solid' },
+      showSymbol: marcadores,
+      symbol: 'circle',
+      symbolSize: 8,
+      // Anel da cor do fundo: marcadores sobrepostos continuam separados.
+      itemStyle: { borderColor: COR.superficie, borderWidth: 2 },
+      emphasis: { focus: 'series' },
+    })),
   };
 }
 
