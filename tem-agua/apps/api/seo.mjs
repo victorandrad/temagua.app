@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ABASTECIMENTO, abastecimentoDoPonto } from './abastecimento.mjs';
 import { pool } from './db.mjs';
+import { DURACOES } from './metricas.mjs';
 
 // ---- Bairros: mesma lista do app (packages/contracts/src/bairros.json) ----
 
@@ -70,6 +71,16 @@ function quando(d) {
   return `${p.day}/${p.month} às ${p.hour}:${p.minute}`;
 }
 
+/** "45 min", "3 h 20 min", "14 h", "2 dias e 3 h" (mesmas regras de duracaoBr no painel de métricas). */
+function duracaoTexto(min) {
+  if (min < 60) return `${min} min`;
+  if (min < 600) return min % 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min / 60} h`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return h % 24 ? `${d} dias e ${h % 24} h` : `${d} dias`;
+}
+
 function ha(d) {
   const min = Math.round((Date.now() - d.getTime()) / 60000);
   if (min < 1) return 'agora';
@@ -93,18 +104,22 @@ async function emCache(chave, gerar) {
 // ---- Dados ----
 
 async function resumoBairro(nome) {
-  const { rows } = await pool.query(
-    `SELECT
-       count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '24 hours')::int AS falta24,
-       count(*) FILTER (WHERE status = 'voltou'   AND criado_em > now() - interval '24 hours')::int AS volta24,
-       count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '7 days')::int  AS falta7,
-       count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '30 days')::int AS falta30,
-       max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'sem-agua' AND encerrado_em IS NULL) AS "ultimaFalta",
-       max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'voltou'   AND encerrado_em IS NULL) AS "ultimaVolta"
-     FROM relatos WHERE origem = 'app' AND bairro = $1`,
-    [nome],
-  );
-  return rows[0];
+  const [{ rows }, dur] = await Promise.all([
+    pool.query(
+      `SELECT
+         count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '24 hours')::int AS falta24,
+         count(*) FILTER (WHERE status = 'voltou'   AND criado_em > now() - interval '24 hours')::int AS volta24,
+         count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '7 days')::int  AS falta7,
+         count(*) FILTER (WHERE status = 'sem-agua' AND criado_em > now() - interval '30 days')::int AS falta30,
+         max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'sem-agua' AND encerrado_em IS NULL) AS "ultimaFalta",
+         max(coalesce(confirmado_em, criado_em)) FILTER (WHERE status = 'voltou'   AND encerrado_em IS NULL) AS "ultimaVolta"
+       FROM relatos WHERE origem = 'app' AND bairro = $1`,
+      [nome],
+    ),
+    // Quanto tempo a falta durou nos últimos 30 dias (ver DURACOES em metricas.mjs).
+    pool.query(`SELECT ${DURACOES} FROM relatos WHERE origem = 'app' AND bairro = $1 AND criado_em > now() - interval '30 days'`, [nome]),
+  ]);
+  return { ...rows[0], ...dur.rows[0] };
 }
 
 async function resumoTodos() {
@@ -235,6 +250,15 @@ export async function paginaBairro(req, s) {
       ? `${r.falta24} ${r.falta24 === 1 ? 'relato' : 'relatos'} de falta de água no ${b.nome} nas últimas 24 horas. Veja no mapa ao vivo e avise seus vizinhos.`
       : `Está faltando água no ${b.nome}, em Salto/SP? Veja os relatos dos vizinhos no mapa ao vivo e avise quando faltar ou voltar.`;
 
+  // Quanto tempo a falta durou (últimos 30 dias): do aviso até o mesmo aparelho dizer que a água voltou.
+  const duracao = r.faltasMedidas
+    ? `<h2>Quanto tempo a falta dura no ${esc(b.nome)}</h2>
+    <p>Nos últimos 30 dias, quando faltou água no ${esc(b.nome)}, ela levou em média <b>${duracaoTexto(r.duracaoMediaMin)}</b> para voltar${
+      r.faltasMedidas > 1 ? `; a falta mais longa durou <b>${duracaoTexto(r.duracaoMaxMin)}</b>` : ''
+    }.</p>
+    <p class="sub">Medido em ${r.faltasMedidas} ${r.faltasMedidas === 1 ? 'falta' : 'faltas'}: do aviso de falta até a mesma pessoa avisar que a água voltou. A falta pode ter começado antes do aviso, então o tempo real tende a ser maior.</p>`
+    : '';
+
   const corpo = `
     <nav class="trilha" aria-label="Você está em"><a href="/">Início</a> › <a href="/bairros">Bairros</a> › ${esc(b.nome)}</nav>
     <h1>Falta de água no ${esc(b.nome)}</h1>
@@ -253,6 +277,7 @@ export async function paginaBairro(req, s) {
         <a class="btn sec" href="${esc(mapa)}">Estou sem água: avisar os vizinhos</a>
       </div>
     </section>
+${duracao}
 
 ${
       abast

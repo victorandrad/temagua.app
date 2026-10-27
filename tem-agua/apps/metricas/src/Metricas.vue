@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ABASTECIMENTO, on } from '@tem-agua/contracts';
 import { csvUrl, fetchBairros, fetchMetricas, type Filtros, type Metricas } from './api';
-import { opcaoBairros, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
-import { dataBr, dataHoraBr, DIAS_SEMANA, hojeEmSalto, horaBr, nf, somaDias, textoBairros, variacao } from './format';
+import { opcaoBairros, opcaoDuracao, opcaoHeatmap, opcaoSerie, opcaoSetores, rotuloSerie } from './charts';
+import { dataBr, dataHoraBr, DIAS_SEMANA, duracaoBr, hojeEmSalto, horaBr, nf, somaDias, textoBairros, variacao } from './format';
 import EChart from './components/EChart.vue';
 import FiltroBairros from './components/FiltroBairros.vue';
 import Esqueleto from './components/Esqueleto.vue';
@@ -159,6 +159,8 @@ const vazio = computed(() => r.value?.total === 0);
 const opSerie = computed(() => (m.value ? opcaoSerie(m.value) : {}));
 const opHeatmap = computed(() => (m.value ? opcaoHeatmap(m.value) : {}));
 const opBairros = computed(() => (m.value ? opcaoBairros(m.value) : {}));
+const opDuracao = computed(() => (m.value ? opcaoDuracao(m.value) : {}));
+const alturaDuracao = computed(() => Math.max(120, Math.min(10, m.value?.bairros.filter((b) => b.faltasMedidas).length ?? 0) * 34 + 16));
 const corDoSetor = (id: string) => ABASTECIMENTO.setores.find((s) => s.id === id)?.cor;
 const opSetores = computed(() => (m.value ? opcaoSetores(m.value) : {}));
 const setoresComFalta = computed(() => m.value?.setores.filter((s) => s.semAgua > 0) ?? []);
@@ -320,6 +322,40 @@ function fimPdf() {
           <EChart v-else :option="opSerie" :height="280" label="Gráfico de colunas empilhadas com relatos de falta d'água e de normalização ao longo do tempo" />
         </article>
 
+        <!-- Quanto tempo a falta dura -->
+        <article class="ta-met__card ta-met__card--full" data-tour="duracao">
+          <header class="ta-met__card-head">
+            <div>
+              <h2 class="ta-met__card-title">Quanto tempo a água fica fora</h2>
+              <p class="ta-met__card-sub">Do aviso de falta até a mesma pessoa avisar que a água voltou</p>
+            </div>
+          </header>
+          <p v-if="!r.faltasMedidas" class="ta-met__vazio">
+            Nenhuma falta medida no período. O tempo aparece quando quem avisou a falta avisa também que a água voltou.
+          </p>
+          <div v-else class="ta-met__duas">
+            <div class="ta-met__dur">
+              <div>
+                <h3 class="ta-met__label">Em média</h3>
+                <p class="ta-met__valor">{{ duracaoBr(r.duracaoMediaMin) }}</p>
+              </div>
+              <dl class="ta-met__dur-lista">
+                <div><dt>Mediana</dt><dd>{{ duracaoBr(r.duracaoMedianaMin) }}</dd></div>
+                <div><dt>A mais longa</dt><dd>{{ duracaoBr(r.duracaoMaxMin) }}</dd></div>
+                <div>
+                  <dt>Faltas medidas</dt>
+                  <dd>{{ nf.format(r.faltasMedidas) }} <small>de {{ nf.format(r.semAgua) }} relatos de falta</small></dd>
+                </div>
+              </dl>
+              <p class="ta-met__fonte">
+                A falta pode ter começado antes do aviso, então o tempo real tende a ser maior. Faltas sem aviso de volta não
+                entram, e menos de 5 minutos conta como engano.
+              </p>
+            </div>
+            <EChart :option="opDuracao" :height="alturaDuracao" label="Barras horizontais com o tempo médio de falta d'água por bairro" />
+          </div>
+        </article>
+
         <!-- Heatmap dia da semana × hora -->
         <article class="ta-met__card" data-tour="quando">
           <header class="ta-met__card-head">
@@ -375,10 +411,11 @@ function fimPdf() {
           </header>
           <div class="ta-met__tabela-wrap ta-met__tabela-wrap--alta">
             <table class="ta-met__tabela">
-              <thead><tr><th>Bairro</th><th>Sem água</th><th>Voltou</th><th>Último relato</th></tr></thead>
+              <thead><tr><th>Bairro</th><th>Sem água</th><th>Voltou</th><th>Duração média</th><th>Último relato</th></tr></thead>
               <tbody>
                 <tr v-for="b in m.bairros" :key="b.bairro">
-                  <td>{{ b.bairro }}</td><td>{{ nf.format(b.semAgua) }}</td><td>{{ nf.format(b.voltou) }}</td><td>{{ dataHoraBr(b.ultimo) }}</td>
+                  <td>{{ b.bairro }}</td><td>{{ nf.format(b.semAgua) }}</td><td>{{ nf.format(b.voltou) }}</td>
+                  <td>{{ duracaoBr(b.duracaoMediaMin) }}</td><td>{{ dataHoraBr(b.ultimo) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -401,11 +438,11 @@ function fimPdf() {
             <EChart :option="opSetores" :height="alturaSetores" label="Barras horizontais com os setores de abastecimento com mais relatos de falta d'água" />
             <div class="ta-met__tabela-wrap ta-met__tabela-wrap--alta">
               <table class="ta-met__tabela">
-                <thead><tr><th>Setor</th><th>Sem água</th><th>Voltou</th><th>Áreas com falta</th></tr></thead>
+                <thead><tr><th>Setor</th><th>Sem água</th><th>Voltou</th><th>Áreas com falta</th><th>Duração média</th></tr></thead>
                 <tbody>
                   <tr v-for="s in m.setores" :key="s.id">
                     <td><i class="ta-met__cor" :style="{ background: corDoSetor(s.id) }" aria-hidden="true"></i>{{ s.nome }}</td><td>{{ nf.format(s.semAgua) }}</td><td>{{ nf.format(s.voltou) }}</td>
-                    <td>{{ s.areasComFalta }} de {{ s.areas }}</td>
+                    <td>{{ s.areasComFalta }} de {{ s.areas }}</td><td>{{ duracaoBr(s.duracaoMediaMin) }}</td>
                   </tr>
                 </tbody>
               </table>

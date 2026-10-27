@@ -8,6 +8,17 @@ export interface Contagens {
   voltou: number;
 }
 
+/**
+ * Quanto tempo a falta durou: do relato "sem água" até o mesmo aparelho avisar que voltou (um piso:
+ * a falta pode ter começado antes do aviso). Minutos; null quando nenhuma falta foi medida.
+ */
+export interface Duracoes {
+  faltasMedidas: number;
+  duracaoMediaMin: number | null;
+  duracaoMedianaMin: number | null;
+  duracaoMaxMin: number | null;
+}
+
 export interface Filtros {
   de: string;
   ate: string;
@@ -18,7 +29,7 @@ export interface Filtros {
 export interface Metricas {
   filtros: Filtros & { dias: number };
   geradoEm: string;
-  resumo: Contagens & {
+  resumo: Contagens & Duracoes & {
     bairrosAfetados: number;
     /** Aparelhos diferentes que relataram falta (só os últimos 30 dias guardam o aparelho). */
     aparelhos: number;
@@ -28,9 +39,9 @@ export interface Metricas {
   };
   serie: { granularidade: 'hora' | 'dia'; pontos: Array<{ t: string; semAgua: number; voltou: number }> };
   semanaHora: Array<{ dow: number; hora: number; semAgua: number }>;
-  bairros: Array<Contagens & { bairro: string; ultimo: string }>;
+  bairros: Array<Contagens & Duracoes & { bairro: string; ultimo: string }>;
   /** Por setor de abastecimento (reservatório); só relatos dentro das áreas do mapa. */
-  setores: Array<Contagens & { id: string; nome: string; areasComFalta: number; areas: number }>;
+  setores: Array<Contagens & Duracoes & { id: string; nome: string; areasComFalta: number; areas: number }>;
   pontos: FeatureCollection<Point, Contagens>;
   recentes: Array<{
     id: string;

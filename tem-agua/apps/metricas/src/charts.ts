@@ -10,7 +10,7 @@ import { BarChart, HeatmapChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
 import type { Contagens, Metricas } from './api';
-import { compacto, dataBr, DIAS_SEMANA, esc, nf } from './format';
+import { compacto, dataBr, DIAS_SEMANA, duracaoBr, esc, nf } from './format';
 
 echarts.use([BarChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
 
@@ -190,6 +190,61 @@ export function opcaoBairros(m: Metricas): Option {
 export function opcaoSetores(m: Metricas): Option {
   const top = m.setores.filter((s) => s.semAgua > 0).slice(0, 10);
   return opcaoBarrasFalta(top, (i) => `<div style="color:${COR.textoSec};font-size:12px">falta em ${top[i].areasComFalta} de ${top[i].areas} áreas</div>`);
+}
+
+/**
+ * Quanto tempo a falta dura por bairro: média (barra) e pior caso (no rótulo), top 10 pela média.
+ * Cor neutra (preto): é duração, não status; o vermelho fica para "sem água".
+ */
+export function opcaoDuracao(m: Metricas): Option {
+  const top = m.bairros
+    .filter((b) => b.faltasMedidas > 0 && b.duracaoMediaMin !== null)
+    .sort((a, b) => b.duracaoMediaMin! - a.duracaoMediaMin!)
+    .slice(0, 10);
+  return {
+    textStyle: { fontFamily: FONTE },
+    grid: { left: 8, right: 110, top: 4, bottom: 4, containLabel: true },
+    tooltip: {
+      ...tooltipBase,
+      trigger: 'item',
+      formatter: (p: { dataIndex: number }) => {
+        const b = top[p.dataIndex];
+        const item = (valor: string, nome: string) =>
+          `<div style="margin-top:4px"><b style="font-weight:600">${valor}</b> <span style="color:${COR.textoSec}">${nome}</span></div>`;
+        return `<div style="color:${COR.textoSec};font-size:12px">${esc(b.bairro)}</div>` +
+          item(duracaoBr(b.duracaoMediaMin), 'em média') +
+          item(duracaoBr(b.duracaoMedianaMin), 'mediana (metade das faltas dura até isso)') +
+          item(duracaoBr(b.duracaoMaxMin), 'a mais longa') +
+          `<div style="color:${COR.textoSec};font-size:12px;margin-top:4px">${nf.format(b.faltasMedidas)} ${b.faltasMedidas === 1 ? 'falta medida' : 'faltas medidas'}</div>`;
+      },
+    },
+    xAxis: { type: 'value', ...eixoValor, splitLine: { show: false }, axisLabel: { show: false } },
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      data: top.map((b) => b.bairro),
+      ...eixoCategoria,
+      axisLabel: { ...eixoCategoria.axisLabel, color: COR.texto, fontSize: 12, width: 170, overflow: 'truncate' },
+    },
+    series: [
+      {
+        type: 'bar',
+        barMaxWidth: 16,
+        itemStyle: { color: COR.texto, borderRadius: [0, 4, 4, 0] },
+        label: {
+          show: true,
+          position: 'right',
+          color: COR.textoSec,
+          fontSize: 12,
+          formatter: (p: { dataIndex: number }) => {
+            const b = top[p.dataIndex];
+            return b.faltasMedidas > 1 ? `${duracaoBr(b.duracaoMediaMin)} · pior ${duracaoBr(b.duracaoMaxMin)}` : duracaoBr(b.duracaoMediaMin);
+          },
+        },
+        data: top.map((b) => b.duracaoMediaMin),
+      },
+    ],
+  };
 }
 
 /** Barras horizontais de falta (bairros ou setores). `extra` acrescenta uma linha ao tooltip. */

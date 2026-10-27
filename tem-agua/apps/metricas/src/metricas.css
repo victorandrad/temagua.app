@@ -1607,6 +1607,41 @@
   }
 }
 
+/* Quanto tempo a água fica fora: número grande + lista curta à esquerda, barras por bairro à direita. */
+.ta-met__dur .ta-met__label {
+  margin: 0;
+}
+
+.ta-met__dur-lista {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.ta-met__dur-lista div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ta-linha);
+  font-size: 14px;
+}
+
+.ta-met__dur-lista dt {
+  color: var(--ta-texto-2);
+}
+
+.ta-met__dur-lista dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.ta-met__dur-lista small {
+  color: var(--ta-texto-2);
+  font-weight: 400;
+}
+
 .ta-met__fonte {
   margin: 12px 0 0;
   font-size: 12px;

@@ -5,7 +5,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import type { Metricas } from '../api';
 import { COR, opcaoBairros, opcaoHeatmap, opcaoSerie, type Option } from '../charts';
-import { dataBr, dataHoraBr, horaBr, nf, textoBairros, variacao } from '../format';
+import { dataBr, dataHoraBr, duracaoBr, horaBr, nf, textoBairros, variacao } from '../format';
 import EChart from './EChart.vue';
 import MapaImagem from './MapaImagem.vue';
 
@@ -67,6 +67,12 @@ const resumo = computed(() => {
     frases.push(`O bairro mais afetado foi ${top.bairro}, com ${nf.format(top.semAgua)} relatos (${Math.round((top.semAgua / x.semAgua) * 100)}% do total).`);
   if (x.horaPico !== null) frases.push(`As faltas se concentraram por volta das ${x.horaPico}h${diaPico.value ? `, sobretudo às ${diaPico.value}` : ''}.`);
   frases.push(`Houve ${nf.format(x.voltou)} ${x.voltou === 1 ? 'aviso' : 'avisos'} de que a água voltou.`);
+  if (x.faltasMedidas)
+    frases.push(
+      x.faltasMedidas === 1
+        ? `A única falta com início e fim avisados durou ${duracaoBr(x.duracaoMediaMin)}.`
+        : `Nas ${nf.format(x.faltasMedidas)} faltas com início e fim avisados, a água levou em média ${duracaoBr(x.duracaoMediaMin)} para voltar; a mais longa durou ${duracaoBr(x.duracaoMaxMin)}.`,
+    );
   return frases;
 });
 
@@ -124,7 +130,10 @@ onMounted(async () => {
       <div class="ta-rel__kpi"><span>Água voltou</span><b>{{ nf.format(r.voltou) }}</b><small>avisos</small></div>
       <div class="ta-rel__kpi"><span>Bairros afetados</span><b>{{ nf.format(r.bairrosAfetados) }}</b><small>com falta</small></div>
       <div class="ta-rel__kpi"><span>Horário de pico</span><b>{{ r.horaPico === null ? '—' : `${r.horaPico}h` }}</b><small>mais faltas</small></div>
-      <div class="ta-rel__kpi"><span>Total de relatos</span><b>{{ nf.format(r.total) }}</b><small>falta + volta</small></div>
+      <div class="ta-rel__kpi">
+        <span>Duração média</span><b>{{ duracaoBr(r.duracaoMediaMin) }}</b>
+        <small>{{ r.faltasMedidas ? `em ${nf.format(r.faltasMedidas)} ${r.faltasMedidas === 1 ? 'falta medida' : 'faltas medidas'}` : 'nenhuma falta medida' }}</small>
+      </div>
     </section>
 
     <section class="ta-rel__secao ta-rel__figura">
@@ -160,6 +169,7 @@ onMounted(async () => {
         <li><b>Cada relato</b> registra o status (sem água ou água voltou), o bairro mais próximo, as coordenadas e a data/hora no fuso de Brasília.</li>
         <li><b>Privacidade:</b> as coordenadas são arredondadas para cerca de 10 m antes de serem gravadas; o app não guarda endereço nem identidade.</li>
         <li><b>Horário de pico:</b> hora do dia com mais relatos de falta no período.</li>
+        <li><b>Duração da falta:</b> do aviso de falta até a mesma pessoa avisar que a água voltou. É um piso (a falta pode ter começado antes do aviso); faltas sem aviso de volta não entram e menos de 5 minutos conta como engano.</li>
         <li><b>Variação:</b> comparação com o período imediatamente anterior, de mesma duração.</li>
         <li><b>Mapa:</b> relatos agrupados em áreas de ~200 m. Mapa © OpenFreeMap, © OpenMapTiles, dados © colaboradores do OpenStreetMap.</li>
       </ul>
@@ -170,7 +180,10 @@ onMounted(async () => {
       <h2 class="ta-rel__h2">Relatos por bairro</h2>
       <table class="ta-rel__tabela">
         <thead>
-          <tr><th>Bairro</th><th class="num">Sem água</th><th class="num">% das faltas</th><th class="num">Água voltou</th><th>Último relato</th></tr>
+          <tr>
+            <th>Bairro</th><th class="num">Sem água</th><th class="num">% das faltas</th><th class="num">Água voltou</th>
+            <th class="num">Duração média</th><th class="num">A mais longa</th><th>Último relato</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="b in m.bairros" :key="b.bairro">
@@ -178,6 +191,8 @@ onMounted(async () => {
             <td class="num">{{ nf.format(b.semAgua) }}</td>
             <td class="num">{{ pctDoTotal(b.semAgua) }}</td>
             <td class="num">{{ nf.format(b.voltou) }}</td>
+            <td class="num">{{ duracaoBr(b.duracaoMediaMin) }}</td>
+            <td class="num">{{ duracaoBr(b.duracaoMaxMin) }}</td>
             <td>{{ dataHoraBr(b.ultimo) }}</td>
           </tr>
         </tbody>

@@ -45,6 +45,17 @@ export function variacao(atual: number, anterior: number): number | null {
   return Math.round(((atual - anterior) / anterior) * 100);
 }
 
+/** Duração em minutos: "45 min", "3 h 20 min", "14 h", "2 dias e 3 h"; null → "—". Mesmas regras de duracaoTexto (apps/api/seo.mjs). */
+export function duracaoBr(min: number | null): string {
+  if (min == null) return '—';
+  if (min < 60) return `${min} min`;
+  if (min < 600) return min % 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min / 60} h`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return h % 24 ? `${d} dias e ${h % 24} h` : `${d} dias`;
+}
+
 /** "Centro", "Centro e Vila Nova", "Centro, Vila Nova e Jardim Buru"; acima de 3, "5 bairros". */
 export function textoBairros(lista: string[], todos = 'todos os bairros'): string {
   if (!lista.length) return todos;

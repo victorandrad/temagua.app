@@ -66,6 +66,17 @@ const CONTAGENS = `
   count(*) FILTER (WHERE status = 'sem-agua')::int AS "semAgua",
   count(*) FILTER (WHERE status = 'voltou')::int AS voltou`;
 
+// Duração da falta: do relato "sem água" até o mesmo aparelho avisar que a água voltou (encerrado_em).
+// É um piso: a falta pode ter começado antes do primeiro aviso. Faltas sem "voltou" (expiraram no mapa
+// ou ainda abertas) não entram; menos de 5 min é tratado como engano (tocou no botão errado).
+export const MEDIDA = `status = 'sem-agua' AND encerrado_em IS NOT NULL AND encerrado_em - criado_em >= interval '5 minutes'`;
+export const SEG = `extract(epoch FROM encerrado_em - criado_em)`;
+export const DURACOES = `
+  count(*) FILTER (WHERE ${MEDIDA})::int AS "faltasMedidas",
+  round(avg(${SEG}) FILTER (WHERE ${MEDIDA}) / 60)::int AS "duracaoMediaMin",
+  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY ${SEG}) FILTER (WHERE ${MEDIDA}) / 60)::int AS "duracaoMedianaMin",
+  round(max(${SEG}) FILTER (WHERE ${MEDIDA}) / 60)::int AS "duracaoMaxMin"`;
+
 async function resumo(f) {
   const atual = where(f);
   const anteriorDe = somaDias(f.de, -f.dias);
@@ -79,7 +90,8 @@ async function resumo(f) {
          count(DISTINCT bairro) FILTER (WHERE status = 'sem-agua')::int AS "bairrosAfetados",
          -- Aparelhos diferentes que relataram falta (o vínculo some após 30 dias: períodos antigos contam menos).
          count(DISTINCT aparelho) FILTER (WHERE status = 'sem-agua')::int AS aparelhos,
-         mode() WITHIN GROUP (ORDER BY hora) FILTER (WHERE status = 'sem-agua') AS "horaPico"
+         mode() WITHIN GROUP (ORDER BY hora) FILTER (WHERE status = 'sem-agua') AS "horaPico",
+         ${DURACOES}
        FROM relatos ${atual.sql}`,
       atual.vals,
     ),
@@ -137,7 +149,7 @@ async function semanaHora(f) {
 async function bairros(f) {
   const w = where({ ...f, bairros: [] });
   const { rows } = await pool.query(
-    `SELECT bairro, ${CONTAGENS}, max(criado_em) AS ultimo
+    `SELECT bairro, ${CONTAGENS}, ${DURACOES}, max(criado_em) AS ultimo
        FROM relatos ${w.sql}
       GROUP BY bairro
       ORDER BY "semAgua" DESC, total DESC
@@ -156,6 +168,7 @@ async function setores(f) {
   const { rows } = await pool.query(
     `SELECT a.setor_id AS id, a.setor AS nome, ${CONTAGENS},
             count(DISTINCT a.area) FILTER (WHERE status = 'sem-agua')::int AS "areasComFalta",
+            ${DURACOES},
             (SELECT count(*)::int FROM areas_abastecimento x WHERE x.setor_id = a.setor_id) AS areas
        FROM relatos r
        JOIN LATERAL (
@@ -249,7 +262,8 @@ export async function relatoriosCsv(f) {
   const { rows } = await pool.query(
     `SELECT to_char(dia, 'DD/MM/YYYY') AS dia, hora,
             to_char(criado_em AT TIME ZONE '${TZ}', 'DD/MM/YYYY HH24:MI:SS') AS data_hora,
-            bairro, status, lat, lng
+            bairro, status, lat, lng,
+            CASE WHEN ${MEDIDA} THEN round(${SEG} / 60)::int END AS duracao
        FROM relatos ${w.sql}
       ORDER BY criado_em`,
     w.vals,
@@ -258,7 +272,8 @@ export async function relatoriosCsv(f) {
     const s = String(v ?? '');
     return /[";\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
   };
-  const header = ['dia', 'hora', 'data_hora', 'bairro', 'status', 'latitude', 'longitude'];
-  const lines = rows.map((r) => [r.dia, r.hora, r.data_hora, r.bairro, r.status, r.lat, r.lng].map(esc).join(';'));
+  // duracao_falta_min: só nos relatos de falta encerrados por um "água voltou" do mesmo aparelho.
+  const header = ['dia', 'hora', 'data_hora', 'bairro', 'status', 'latitude', 'longitude', 'duracao_falta_min'];
+  const lines = rows.map((r) => [r.dia, r.hora, r.data_hora, r.bairro, r.status, r.lat, r.lng, r.duracao].map(esc).join(';'));
   return BOM + [header.join(';'), ...lines].join('\r\n') + '\r\n';
 }
