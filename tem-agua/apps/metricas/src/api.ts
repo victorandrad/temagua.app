@@ -78,6 +78,19 @@ export async function fetchBairros(): Promise<string[]> {
   return res.ok ? ((await res.json()) as string[]) : [];
 }
 
+export interface MesComRelatos extends Contagens {
+  /** AAAA-MM */
+  mes: string;
+  bairrosAfetados: number;
+}
+
+/** Meses com relatos, do mais recente ao mais antigo (lista dos relatórios mensais). */
+export async function fetchMeses(): Promise<MesComRelatos[]> {
+  const res = await fetch('/api/relatorios/meses');
+  if (!res.ok) throw new Error('Não foi possível carregar os relatórios.');
+  return (await res.json()) as MesComRelatos[];
+}
+
 export function csvUrl(f: Filtros): string {
   return `/api/relatorios/relatos.csv?${query(f)}`;
 }

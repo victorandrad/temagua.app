@@ -275,6 +275,16 @@ export async function metricas(f) {
   };
 }
 
+/** Meses com relatos (para a lista de relatórios mensais em /relatorios), do mais recente ao mais antigo. */
+export async function mesesComRelatos() {
+  const { rows } = await pool.query(
+    `SELECT to_char(date_trunc('month', dia), 'YYYY-MM') AS mes, ${CONTAGENS}, count(DISTINCT bairro) FILTER (WHERE status = 'sem-agua')::int AS "bairrosAfetados"
+       FROM relatos WHERE origem = 'app'
+      GROUP BY 1 ORDER BY 1 DESC`,
+  );
+  return rows;
+}
+
 /**
  * Modo monitoramento: relatos individuais das últimas N horas (1–72), com posição e horário,
  * para o mapa de calor em tempo real.

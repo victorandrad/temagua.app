@@ -93,6 +93,7 @@ jobs:
             });'
           curl -fsS "$API/api/relatorios/relatos.csv?bairro=Centro" | grep ';18[01]' > /dev/null
           curl -fsS "$API/bairros/centro" | grep 'Quanto tempo a falta dura' > /dev/null
+          curl -fsS "$API/api/relatorios/meses" | grep '"semAgua":1' > /dev/null
       - name: Log da API
         if: always() && inputs.parte == 'backend'
         run: cat tem-agua/apps/api/api.log || true

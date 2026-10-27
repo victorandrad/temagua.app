@@ -6,6 +6,7 @@
 //   WS   /api/ws                   → { type: 'report', report } a cada relato novo, renovado ou encerrado
 //   GET  /api/metricas             → tudo do painel de métricas (filtros: de, ate, bairro — pode repetir)
 //   GET  /api/metricas/bairros     → bairros com relatos (para o filtro)
+//   GET  /api/relatorios/meses     → meses com relatos (lista dos relatórios mensais em /relatorios)
 //   GET  /bairros, /bairros/<slug> → páginas HTML para o Google (situação por bairro, só relatos reais)
 //   GET  /sitemap.xml, /robots.txt → indexação
 //   GET  /api/geocode?q=           → autocompletar de endereços de Salto (proxy com cache para o Photon/OSM)
@@ -25,7 +26,7 @@ import { connect, esquecerAparelhos, pool, recentReports, registrarRelato, segre
 import { carregarAreas } from './abastecimento.mjs';
 import { geocode } from './geocode.mjs';
 import { paginaBairro, paginaIndice, robots, sitemap } from './seo.mjs';
-import { listaBairros, metricas, monitor, parseFiltros, relatoriosCsv } from './metricas.mjs';
+import { listaBairros, mesesComRelatos, metricas, monitor, parseFiltros, relatoriosCsv } from './metricas.mjs';
 
 // API_PORT e não PORT: ferramentas de dev costumam definir PORT para o app principal.
 const PORT = Number(process.env.API_PORT ?? 4300);
@@ -176,6 +177,10 @@ async function handle(req, res) {
 
   if (url.pathname === '/api/metricas/bairros' && req.method === 'GET') {
     return sendJson(res, 200, await listaBairros());
+  }
+
+  if (url.pathname === '/api/relatorios/meses' && req.method === 'GET') {
+    return sendJson(res, 200, await mesesComRelatos());
   }
 
   if (url.pathname === '/api/relatorios/relatos.csv' && req.method === 'GET') {

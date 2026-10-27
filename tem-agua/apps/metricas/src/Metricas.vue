@@ -274,6 +274,7 @@ function fimPdf() {
           Salto/SP · {{ periodoTexto }} · {{ textoBairros(bairrosSel) }}
         </p>
       </div>
+      <a class="ta-met__ajuda ta-met__mensais" href="/relatorios" data-tour="mensais">Relatórios mensais</a>
       <button type="button" class="ta-met__ajuda" @click="abrirTour">
         <span aria-hidden="true">?</span> Como usar
       </button>

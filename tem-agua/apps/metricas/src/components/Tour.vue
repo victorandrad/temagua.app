@@ -30,6 +30,7 @@ const PASSOS: Passo[] = [
   { alvo: 'compartilhar', titulo: 'Mande esta visão', texto: 'O link guarda o período e os bairros escolhidos: quem abrir vê exatamente o mesmo recorte.' },
   { alvo: 'exportar', titulo: 'Leve os dados', texto: 'Baixe todos os relatos do período numa planilha (abre no Excel).' },
   { alvo: 'pdf', titulo: 'Relatório em PDF', texto: 'Um relatório de 3 páginas, pronto para levar a uma reunião com a Prefeitura, a Câmara ou o SAAE.' },
+  { alvo: 'mensais', titulo: 'Relatórios mensais', texto: 'Um relatório público por mês, com link fixo e PDF gerado sozinho no dia 1.' },
   { alvo: 'monitor', titulo: 'Monitoramento ao vivo', texto: 'Mapa de calor em tela cheia, que pulsa onde está faltando água agora. Feito para ficar ligado numa TV.' },
 ];
 

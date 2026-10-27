@@ -19,6 +19,28 @@ export function somaDias(data: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const MES_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+/** "2026-10" → { de: "2026-10-01", ate: "2026-10-31" }; null se o formato for inválido. */
+export function limitesDoMes(mes: string): { de: string; ate: string } | null {
+  const r = MES_RE.exec(mes);
+  if (!r) return null;
+  const ultimo = new Date(Date.UTC(Number(r[1]), Number(r[2]), 0)).getUTCDate();
+  return { de: `${mes}-01`, ate: `${mes}-${String(ultimo).padStart(2, '0')}` };
+}
+
+/** "2026-10" → "outubro de 2026". */
+export function mesPorExtenso(mes: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${mes}-15T12:00:00Z`));
+}
+
+/** "2026-01" + 1 → "2026-02"; - 1 → "2025-12". */
+export function somaMes(mes: string, n: number): string {
+  const [a, m] = mes.split('-').map(Number);
+  const d = new Date(Date.UTC(a, m - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+}
+
 /** "2026-10-21" → "21/10/2026"; curto → "21/10". */
 export function dataBr(iso: string, curto = false): string {
   const [a, m, d] = iso.slice(0, 10).split('-');

@@ -243,6 +243,16 @@
   cursor: pointer;
 }
 
+/* "Relatórios mensais": mesma pílula, antes do "Como usar" (que já empurra os dois para a direita). */
+.ta-met__mensais {
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.ta-met__mensais + .ta-met__ajuda {
+  margin-left: 0;
+}
+
 .ta-met__ajuda:hover {
   background: #e2e2e2;
 }
@@ -1626,6 +1636,130 @@
   .ta-rel * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+}
+
+/* ---- Relatórios mensais (/relatorios, /relatorios/AAAA-MM: RelatoriosMensais.vue) ---- */
+
+.ta-mensal__intro {
+  max-width: 680px;
+  margin: -4px 0 16px;
+  color: var(--ta-texto-2);
+  font-size: 14px;
+}
+
+.ta-mensal__lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ta-mensal__lista li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  border-radius: 14px;
+  background: var(--ta-sup);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.ta-mensal__mes {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ta-mensal__mes b {
+  font-size: 16px;
+}
+
+.ta-mensal__mes small {
+  flex-basis: 100%;
+  color: var(--ta-texto-2);
+  font-size: 13px;
+}
+
+.ta-mensal__selo {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fff6e0;
+  color: #5c4400;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ta-mensal__pdf {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ta-mensal__lista li:hover {
+  background: #fafafa;
+}
+
+.ta-mensal__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ta-mensal__aviso {
+  max-width: 783px;
+  margin: 0 auto 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff6e0;
+  color: #5c4400;
+  font-size: 13px;
+}
+
+@media screen {
+  /* Na tela, o relatório vira uma folha A4 centralizada (fora da tela só quando é o "Relatório PDF" do painel). */
+  .ta-mensal__papel {
+    box-sizing: border-box;
+    width: 783px; /* 186 mm + 40 px de margem de cada lado */
+    margin: 0 auto;
+    padding: 40px;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+
+  .ta-mensal__papel .ta-rel {
+    position: static;
+  }
+
+  .ta-mensal__papel .ta-rel__nova-pagina {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px dashed #d6d6d6;
+  }
+}
+
+@media print {
+  .ta-mensal__papel {
+    zoom: 1 !important;
+  }
+
+  /* A regra do "Relatório PDF" esconde tudo que não é .ta-rel; aqui o relatório está dentro do papel. */
+  .ta-mensal.is-relatorio > .ta-mensal__papel {
+    display: block !important;
   }
 }
 

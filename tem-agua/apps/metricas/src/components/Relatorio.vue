@@ -9,7 +9,8 @@ import { dataBr, dataHoraBr, duracaoBr, horaBr, nf, textoBairros, variacao } fro
 import EChart from './EChart.vue';
 import MapaImagem from './MapaImagem.vue';
 
-const props = defineProps<{ m: Metricas }>();
+// titulo/periodoTexto: o relatório mensal (/relatorios/AAAA-MM) troca o título e mostra o mês por extenso.
+const props = defineProps<{ m: Metricas; titulo?: string; periodoTexto?: string }>();
 const emit = defineEmits<{ pronto: [] }>();
 
 const r = computed(() => props.m.resumo);
@@ -104,11 +105,11 @@ onMounted(async () => {
         </span>
         <div>
           <p class="ta-rel__app">Tem Água? · Salto/SP</p>
-          <h1 class="ta-rel__titulo">Relatório de falta d'água</h1>
+          <h1 class="ta-rel__titulo">{{ titulo ?? "Relatório de falta d'água" }}</h1>
         </div>
       </div>
       <dl class="ta-rel__meta">
-        <div><dt>Período</dt><dd>{{ periodo }}</dd></div>
+        <div><dt>Período</dt><dd>{{ periodoTexto ?? periodo }}</dd></div>
         <div><dt>{{ escolhidos.length > 1 ? 'Bairros' : 'Bairro' }}</dt><dd>{{ escolhidos.length ? escolhidos.join(', ') : 'Todos' }}</dd></div>
         <div><dt>Gerado em</dt><dd>{{ geradoEm }}</dd></div>
       </dl>
